@@ -27,8 +27,11 @@ interface Ciclo {
   quantidade?: number
   proximaNotificacao?: string
   ultimaCompra?: string
-  cliente: { id: string; nome: string; telefone: string }
-  produto: { id: string; nome: string }
+  clienteId: string
+  clienteNome: string
+  clienteTelefone: string
+  produtoId: string
+  produtoNome: string
 }
 
 interface Cliente { id: string; nome: string; telefone: string }
@@ -75,8 +78,8 @@ export default function CiclosPage() {
   function openEdit(ciclo: Ciclo) {
     setEditing(ciclo)
     setForm({
-      clienteId: ciclo.cliente.id,
-      produtoId: ciclo.produto.id,
+      clienteId: ciclo.clienteId,
+      produtoId: ciclo.produtoId,
       intervaloDias: String(ciclo.intervaloDias),
       quantidade: ciclo.quantidade != null ? String(ciclo.quantidade) : '',
     })
@@ -189,10 +192,10 @@ export default function CiclosPage() {
                 ciclos.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell>
-                      <p className="font-medium">{c.cliente.nome}</p>
-                      <p className="text-xs text-muted-foreground">{c.cliente.telefone}</p>
+                      <p className="font-medium">{c.clienteNome}</p>
+                      <p className="text-xs text-muted-foreground">{c.clienteTelefone}</p>
                     </TableCell>
-                    <TableCell>{c.produto.nome}</TableCell>
+                    <TableCell>{c.produtoNome}</TableCell>
                     <TableCell>{c.intervaloDias}d</TableCell>
                     <TableCell>{c.quantidade ?? '—'}</TableCell>
                     <TableCell>{proximaBadge(c.proximaNotificacao)}</TableCell>
