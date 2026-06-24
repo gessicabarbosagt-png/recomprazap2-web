@@ -12,6 +12,7 @@ import {
   Package,
   RefreshCw,
   MessageSquare,
+  Settings,
   LogOut,
 } from 'lucide-react'
 
@@ -21,6 +22,10 @@ const nav = [
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/ciclos', label: 'Ciclos de Recompra', icon: RefreshCw },
   { href: '/mensagens', label: 'Mensagens', icon: MessageSquare },
+]
+
+const navBottom = [
+  { href: '/configuracoes', label: 'Configurações', icon: Settings },
 ]
 
 export function Sidebar() {
@@ -38,6 +43,24 @@ export function Sidebar() {
 
       <nav className="flex-1 space-y-1">
         {nav.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href}>
+            <span
+              className={cn(
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
+                pathname === href
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </span>
+          </Link>
+        ))}
+      </nav>
+
+      <nav className="space-y-1 mb-1">
+        {navBottom.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href}>
             <span
               className={cn(
