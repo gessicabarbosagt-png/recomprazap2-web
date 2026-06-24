@@ -52,16 +52,17 @@ export default function CiclosPage() {
 
   async function load() {
     try {
-      const [c, cl, pr] = await Promise.all([
+      const [resCiclos, resClientes, resProdutos] = await Promise.allSettled([
         api.get('/ciclos'),
         api.get('/clientes'),
         api.get('/produtos'),
       ])
-      setCiclos(c.data)
-      setClientes(cl.data)
-      setProdutos(pr.data)
-    } catch {
-      toast.error('Erro ao carregar dados')
+      if (resCiclos.status === 'fulfilled') setCiclos(resCiclos.value.data)
+      else toast.error('Erro ao carregar ciclos')
+      if (resClientes.status === 'fulfilled') setClientes(resClientes.value.data)
+      else toast.error('Erro ao carregar clientes')
+      if (resProdutos.status === 'fulfilled') setProdutos(resProdutos.value.data)
+      else toast.error('Erro ao carregar produtos')
     } finally {
       setLoading(false)
     }
