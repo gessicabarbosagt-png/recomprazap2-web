@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Send, MessageSquare, Loader2, RefreshCw } from 'lucide-react'
+import { Send, MessageSquare, Loader2, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Mensagem {
   id: string
@@ -29,6 +31,10 @@ interface Conversa {
   ultimaData: string
   naoLidas: number
 }
+
+type StatusWA = 'conectado' | 'aguardando' | 'desconectado'
+
+// ─── Helpers de data/hora ─────────────────────────────────────────────────────
 
 function formatHora(iso: string) {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -67,35 +73,98 @@ function agruparPorData(mensagens: Mensagem[]): { data: string; itens: Mensagem[
   }))
 }
 
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 export default function MensagensPage() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([])
   const [conversaAtiva, setConversaAtiva] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [texto, setTexto] = useState('')
+  const [statusWA, setStatusWA] = useState<StatusWA>('desconectado')
+  const [atualizando, setAtualizando] = useState(false)
+
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const conversaAtivaRef = useRef<string | null>(null)
+  const prevCountRef = useRef(0)
 
-  const load = useCallback(async () => {
+  // ── Scroll ──────────────────────────────────────────────────────────────────
+
+  function isNearBottom() {
+    const el = scrollAreaRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 100
+  }
+
+  function scrollToBottom(instant = false) {
+    bottomRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
+  }
+
+  // Ao trocar de conversa: sempre vai para o fundo
+  useEffect(() => {
+    if (conversaAtiva !== conversaAtivaRef.current) {
+      conversaAtivaRef.current = conversaAtiva
+      setTimeout(() => scrollToBottom(true), 0)
+    }
+  }, [conversaAtiva])
+
+  // Ao chegarem novas mensagens: só rola se já estava no fundo
+  useEffect(() => {
+    const ativas = mensagens.filter((m) => m.telefone === conversaAtiva)
+    if (ativas.length > prevCountRef.current && isNearBottom()) {
+      scrollToBottom()
+    }
+    prevCountRef.current = ativas.length
+  }, [mensagens, conversaAtiva])
+
+  // ── Polling de mensagens (5s) ────────────────────────────────────────────────
+
+  const fetchMensagens = useCallback(async (silencioso = true) => {
     try {
       const { data } = await api.get('/whatsapp/mensagens')
-      setMensagens(Array.isArray(data) ? data : data.mensagens ?? [])
+      setMensagens(Array.isArray(data) ? data : (data.mensagens ?? []))
     } catch {
-      toast.error('Erro ao carregar mensagens')
+      if (!silencioso) toast.error('Erro ao carregar mensagens')
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => {
-    load()
-    const interval = setInterval(load, 10_000)
-    return () => clearInterval(interval)
-  }, [load])
+  // ── Polling de status do WhatsApp (10s) ──────────────────────────────────────
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const { data } = await api.get('/whatsapp/status')
+      setStatusWA(data.status ?? 'desconectado')
+    } catch {
+      setStatusWA('desconectado')
+    }
+  }, [])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [conversaAtiva, mensagens])
+    fetchMensagens(false)
+    fetchStatus()
+
+    const msgInterval = setInterval(() => fetchMensagens(true), 5_000)
+    const statusInterval = setInterval(fetchStatus, 10_000)
+
+    return () => {
+      clearInterval(msgInterval)
+      clearInterval(statusInterval)
+    }
+  }, [fetchMensagens, fetchStatus])
+
+  // ── Refresh manual ───────────────────────────────────────────────────────────
+
+  async function handleRefresh() {
+    setAtualizando(true)
+    await Promise.all([fetchMensagens(false), fetchStatus()])
+    setAtualizando(false)
+  }
+
+  // ── Conversas derivadas das mensagens ────────────────────────────────────────
 
   const conversas: Conversa[] = (() => {
     const mapa: Record<string, Mensagem[]> = {}
@@ -124,6 +193,9 @@ export default function MensagensPage() {
     .sort((a, b) => new Date(a.criadoEm).getTime() - new Date(b.criadoEm).getTime())
 
   const conversaAtivaInfo = conversas.find((c) => c.telefone === conversaAtiva)
+  const grupos = agruparPorData(mensagensAtivas)
+
+  // ── Envio de mensagem ────────────────────────────────────────────────────────
 
   async function handleEnviar() {
     if (!texto.trim() || !conversaAtiva) return
@@ -131,7 +203,7 @@ export default function MensagensPage() {
     try {
       await api.post('/whatsapp/mensagens', { telefone: conversaAtiva, conteudo: texto.trim() })
       setTexto('')
-      await load()
+      await fetchMensagens(true)
       inputRef.current?.focus()
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Erro ao enviar mensagem')
@@ -147,21 +219,34 @@ export default function MensagensPage() {
     }
   }
 
-  const grupos = agruparPorData(mensagensAtivas)
+  // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <LayoutShell>
       <div className="flex -m-8 overflow-hidden" style={{ height: '100vh' }}>
 
-        {/* ── Lista de conversas ─────────────────────────────────── */}
+        {/* ── Lista de conversas ──────────────────────────────────────────────── */}
         <aside className="w-80 flex-shrink-0 border-r flex flex-col bg-background">
-          <div className="px-4 py-3 border-b flex items-center justify-between">
-            <h1 className="text-base font-semibold">Mensagens</h1>
-            <Button size="icon" variant="ghost" onClick={load} title="Atualizar">
-              <RefreshCw className="h-4 w-4" />
+
+          {/* Header da sidebar */}
+          <div className="px-4 py-3 border-b flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-base font-semibold">Mensagens</h1>
+              <StatusWABadge status={statusWA} />
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleRefresh}
+              disabled={atualizando}
+              title="Atualizar"
+              className="flex-shrink-0"
+            >
+              <RefreshCw className={cn('h-4 w-4', atualizando && 'animate-spin')} />
             </Button>
           </div>
 
+          {/* Lista */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="space-y-1 p-2">
@@ -215,7 +300,7 @@ export default function MensagensPage() {
           </div>
         </aside>
 
-        {/* ── Área do chat ───────────────────────────────────────── */}
+        {/* ── Área do chat ────────────────────────────────────────────────────── */}
         <section className="flex-1 flex flex-col min-w-0 bg-background">
           {conversaAtiva && conversaAtivaInfo ? (
             <>
@@ -230,11 +315,10 @@ export default function MensagensPage() {
                 </div>
               </div>
 
-              {/* Histórico de mensagens */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+              {/* Histórico */}
+              <div ref={scrollAreaRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                 {grupos.map(({ data, itens }) => (
                   <div key={data}>
-                    {/* Divisor de data */}
                     <div className="flex items-center gap-3 my-3">
                       <div className="flex-1 h-px bg-border" />
                       <span className="text-xs text-muted-foreground px-2">{data}</span>
@@ -245,7 +329,6 @@ export default function MensagensPage() {
                       {itens.map((m) => {
                         const isEnviada = m.direcao === 'enviada'
                         const isLembrete = m.tipo === 'lembrete'
-
                         return (
                           <div
                             key={m.id}
@@ -301,11 +384,10 @@ export default function MensagensPage() {
                   className="flex-1"
                 />
                 <Button onClick={handleEnviar} disabled={!texto.trim() || enviando}>
-                  {enviando ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
+                  {enviando
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Send className="h-4 w-4" />
+                  }
                 </Button>
               </div>
             </>
@@ -318,5 +400,34 @@ export default function MensagensPage() {
         </section>
       </div>
     </LayoutShell>
+  )
+}
+
+// ─── Badge de status do WhatsApp ──────────────────────────────────────────────
+
+function StatusWABadge({ status }: { status: StatusWA }) {
+  if (status === 'conectado') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+        <Wifi className="h-3 w-3" />
+        <span className="hidden sm:inline">Online</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+      </span>
+    )
+  }
+  if (status === 'aguardando') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-500">
+        <Wifi className="h-3 w-3" />
+        <span className="hidden sm:inline">Aguardando</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+      <WifiOff className="h-3 w-3" />
+      <span className="hidden sm:inline">Offline</span>
+    </span>
   )
 }
