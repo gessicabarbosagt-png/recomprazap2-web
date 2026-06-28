@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { LayoutShell } from '@/components/app/layout-shell'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
@@ -14,33 +14,56 @@ import { Loader2, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 
 type Status = 'conectado' | 'desconectado' | 'aguardando'
 
-const QR_PLACEHOLDER = 'https://recomprazap.com.br/whatsapp/connect'
+// QR do Baileys expira em ~20s; buscamos a cada 14s para garantir frescor
+const QR_REFRESH_MS = 14_000
 
 export default function ConfiguracoesPage() {
   const [status, setStatus] = useState<Status>('desconectado')
-  const [qrValue, setQrValue] = useState(QR_PLACEHOLDER)
+  const [qrValue, setQrValue] = useState<string | null>(null)
   const [loadingQr, setLoadingQr] = useState(false)
   const [desconectando, setDesconectando] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  async function atualizarQr() {
-    setLoadingQr(true)
+  function pararPolling() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
+  const buscarQrCode = useCallback(async () => {
     try {
       const { data } = await api.get('/whatsapp/qrcode')
-      setQrValue(data.qrcode ?? data.value ?? QR_PLACEHOLDER)
-      setStatus('aguardando')
+      const novoStatus: Status = data.status ?? 'desconectado'
+      setStatus(novoStatus)
+      // só atualiza o QR se vier uma string válida do Baileys
+      if (data.qrcode) setQrValue(data.qrcode)
+      if (novoStatus === 'conectado') {
+        setQrValue(null)
+        pararPolling()
+        toast.success('WhatsApp conectado!')
+      }
     } catch {
-      toast.error('Erro ao buscar QR Code')
-    } finally {
-      setLoadingQr(false)
+      // tentará novamente no próximo tick
     }
+  }, [])
+
+  async function iniciarConexao() {
+    setLoadingQr(true)
+    pararPolling()
+    setQrValue(null)
+    await buscarQrCode()
+    setLoadingQr(false)
+    intervalRef.current = setInterval(buscarQrCode, QR_REFRESH_MS)
   }
 
   async function desconectar() {
     setDesconectando(true)
+    pararPolling()
     try {
       await api.post('/whatsapp/desconectar')
       setStatus('desconectado')
-      setQrValue(QR_PLACEHOLDER)
+      setQrValue(null)
       toast.success('WhatsApp desconectado')
     } catch {
       toast.error('Erro ao desconectar')
@@ -48,6 +71,12 @@ export default function ConfiguracoesPage() {
       setDesconectando(false)
     }
   }
+
+  // verifica status atual ao montar a página
+  useEffect(() => {
+    buscarQrCode()
+    return () => pararPolling()
+  }, [buscarQrCode])
 
   return (
     <LayoutShell>
@@ -97,16 +126,23 @@ export default function ConfiguracoesPage() {
               <div className="flex flex-col items-center gap-5">
                 {/* QR Code */}
                 <div className="rounded-xl border bg-white p-4 shadow-sm">
-                  {loadingQr ? (
+                  {loadingQr || (status === 'aguardando' && !qrValue) ? (
                     <div className="flex items-center justify-center" style={{ width: 200, height: 200 }}>
                       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
-                  ) : (
+                  ) : qrValue ? (
                     <QRCodeSVG
                       value={qrValue}
                       size={200}
                       level="M"
                     />
+                  ) : (
+                    <div
+                      className="flex items-center justify-center text-center text-sm text-muted-foreground px-4"
+                      style={{ width: 200, height: 200 }}
+                    >
+                      Clique em &ldquo;Gerar QR Code&rdquo; para iniciar
+                    </div>
                   )}
                 </div>
 
@@ -118,21 +154,21 @@ export default function ConfiguracoesPage() {
                   <li>Aponte a câmera para o QR Code acima</li>
                 </ol>
 
-                {status === 'aguardando' && (
+                {status === 'aguardando' && qrValue && (
                   <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 w-full max-w-xs text-center">
-                    Aguardando escaneamento…
+                    Aguardando escaneamento… O QR atualiza automaticamente.
                   </p>
                 )}
 
                 <Button
                   variant="outline"
-                  onClick={atualizarQr}
+                  onClick={iniciarConexao}
                   disabled={loadingQr}
                   className="w-full max-w-xs"
                 >
                   {loadingQr
                     ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carregando…</>
-                    : <><RefreshCw className="h-4 w-4 mr-2" /> Gerar novo QR Code</>
+                    : <><RefreshCw className="h-4 w-4 mr-2" /> Gerar QR Code</>
                   }
                 </Button>
               </div>
