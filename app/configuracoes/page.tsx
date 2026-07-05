@@ -5,17 +5,28 @@ import { LayoutShell } from '@/components/app/layout-shell'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { QRCodeSVG } from 'qrcode.react'
-import { Loader2, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Loader2, Wifi, WifiOff, RefreshCw, MessageSquare } from 'lucide-react'
 
 type Status = 'conectado' | 'desconectado' | 'aguardando'
 
-// QR do Baileys expira em ~20s; buscamos a cada 14s para garantir frescor
+const TEMPLATE_PADRAO =
+  `Oi, {nome}! 👋\n\nJá está na hora de repor *{produto}*{quantidade}. Posso te ajudar?\n\nResponda:\n1️⃣ *1* — Quero pedir\n2️⃣ *2* — Me avise depois\n3️⃣ *3* — Não quero mais`
+
 const QR_REFRESH_MS = 14_000
+
+function aplicarVariaveis(template: string) {
+  return template
+    .replace(/\{nome\}/g, 'Maria')
+    .replace(/\{produto\}/g, 'Ração Golden')
+    .replace(/\{quantidade\}/g, ' (2 kg)')
+    .replace(/\{loja\}/g, 'BeeUp Pizzarias')
+}
 
 export default function ConfiguracoesPage() {
   const [status, setStatus] = useState<Status>('desconectado')
@@ -24,6 +35,43 @@ export default function ConfiguracoesPage() {
   const [desconectando, setDesconectando] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const [modelo, setModelo] = useState(TEMPLATE_PADRAO)
+  const [modeloOriginal, setModeloOriginal] = useState(TEMPLATE_PADRAO)
+  const [savingModelo, setSavingModelo] = useState(false)
+  const [loadingModelo, setLoadingModelo] = useState(true)
+
+  const modeloAlterado = modelo !== modeloOriginal
+
+  // ── Carrega configurações da loja ─────────────────────────────────
+  useEffect(() => {
+    api.get('/lojas/minha')
+      .then(({ data }) => {
+        const t = data.modeloMensagem || TEMPLATE_PADRAO
+        setModelo(t)
+        setModeloOriginal(t)
+      })
+      .catch(() => { /* usa o default */ })
+      .finally(() => setLoadingModelo(false))
+  }, [])
+
+  async function salvarModelo() {
+    setSavingModelo(true)
+    try {
+      await api.patch('/lojas/minha/modelo-mensagem', { modeloMensagem: modelo })
+      setModeloOriginal(modelo)
+      toast.success('Modelo salvo com sucesso')
+    } catch {
+      toast.error('Erro ao salvar modelo')
+    } finally {
+      setSavingModelo(false)
+    }
+  }
+
+  function restaurarPadrao() {
+    setModelo(TEMPLATE_PADRAO)
+  }
+
+  // ── WhatsApp QR Code ──────────────────────────────────────────────
   function pararPolling() {
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
@@ -36,16 +84,13 @@ export default function ConfiguracoesPage() {
       const { data } = await api.get('/whatsapp/qrcode')
       const novoStatus: Status = data.status ?? 'desconectado'
       setStatus(novoStatus)
-      // só atualiza o QR se vier uma string válida do Baileys
       if (data.qrcode) setQrValue(data.qrcode)
       if (novoStatus === 'conectado') {
         setQrValue(null)
         pararPolling()
         toast.success('WhatsApp conectado!')
       }
-    } catch {
-      // tentará novamente no próximo tick
-    }
+    } catch { /* tentará no próximo tick */ }
   }, [])
 
   async function iniciarConexao() {
@@ -72,7 +117,6 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  // verifica status atual ao montar a página
   useEffect(() => {
     buscarQrCode()
     return () => pararPolling()
@@ -124,18 +168,13 @@ export default function ConfiguracoesPage() {
               </div>
             ) : (
               <div className="flex flex-col items-center gap-5">
-                {/* QR Code */}
                 <div className="rounded-xl border bg-white p-4 shadow-sm">
                   {loadingQr || (status === 'aguardando' && !qrValue) ? (
                     <div className="flex items-center justify-center" style={{ width: 200, height: 200 }}>
                       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                   ) : qrValue ? (
-                    <QRCodeSVG
-                      value={qrValue}
-                      size={200}
-                      level="M"
-                    />
+                    <QRCodeSVG value={qrValue} size={200} level="M" />
                   ) : (
                     <div
                       className="flex items-center justify-center text-center text-sm text-muted-foreground px-4"
@@ -146,7 +185,6 @@ export default function ConfiguracoesPage() {
                   )}
                 </div>
 
-                {/* Instruções */}
                 <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside text-left w-full max-w-xs">
                   <li>Abra o WhatsApp no seu celular</li>
                   <li>Toque em <strong>Dispositivos conectados</strong></li>
@@ -173,6 +211,77 @@ export default function ConfiguracoesPage() {
                 </Button>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* ── Modelo de mensagem ────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <MessageSquare className="h-5 w-5 mt-0.5 text-muted-foreground" />
+              <div>
+                <CardTitle>Modelo de mensagem</CardTitle>
+                <CardDescription className="mt-1">
+                  Personalize o texto enviado aos clientes nos lembretes de recompra.
+                  Use <code className="text-xs bg-muted px-1 rounded">{'{nome}'}</code>,{' '}
+                  <code className="text-xs bg-muted px-1 rounded">{'{produto}'}</code>,{' '}
+                  <code className="text-xs bg-muted px-1 rounded">{'{quantidade}'}</code> e{' '}
+                  <code className="text-xs bg-muted px-1 rounded">{'{loja}'}</code> como variáveis.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            {loadingModelo ? (
+              <div className="h-32 rounded-md border bg-muted animate-pulse" />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Editor */}
+                <div className="space-y-2">
+                  <Label>Template</Label>
+                  <textarea
+                    className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={modelo}
+                    onChange={(e) => setModelo(e.target.value)}
+                    placeholder={TEMPLATE_PADRAO}
+                  />
+                </div>
+
+                {/* Preview */}
+                <div className="space-y-2">
+                  <Label>Preview</Label>
+                  <div className="min-h-[200px] rounded-md border bg-[#e5ddd5] p-3">
+                    <div className="max-w-[85%] ml-auto bg-[#dcf8c6] rounded-lg px-3 py-2 shadow-sm">
+                      <p className="text-sm whitespace-pre-wrap text-gray-800">
+                        {aplicarVariaveis(modelo || TEMPLATE_PADRAO)}
+                      </p>
+                      <p className="text-[10px] text-gray-400 text-right mt-1">agora ✓✓</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={restaurarPadrao}
+                disabled={modelo === TEMPLATE_PADRAO || savingModelo}
+              >
+                Restaurar padrão
+              </Button>
+              <Button
+                onClick={salvarModelo}
+                disabled={!modeloAlterado || savingModelo}
+              >
+                {savingModelo
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Salvando…</>
+                  : 'Salvar modelo'
+                }
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
