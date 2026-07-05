@@ -13,12 +13,15 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Plus, Pencil, Trash2, Loader2, Calendar } from 'lucide-react'
+import {
+  Plus, Pencil, Trash2, Loader2, Calendar, Send, SendHorizonal,
+  CheckCircle2, XCircle, Clock,
+} from 'lucide-react'
 
 interface Ciclo {
   id: string
@@ -27,6 +30,7 @@ interface Ciclo {
   quantidade?: number
   proximaNotificacao?: string
   ultimaCompra?: string
+  statusUltimoEnvio?: 'sucesso' | 'erro' | null
   clienteId: string
   clienteNome: string
   clienteTelefone: string
@@ -37,8 +41,13 @@ interface Ciclo {
 interface Cliente { id: string; nome: string; telefone: string }
 interface Produto { id: string; nome: string }
 
-const emptyForm: { clienteId: string; produtoId: string; intervaloDias: string; quantidade: string } =
-  { clienteId: '', produtoId: '', intervaloDias: '30', quantidade: '' }
+const emptyForm = { clienteId: '', produtoId: '', intervaloDias: '30', quantidade: '' }
+
+function StatusEnvioIcon({ status }: { status?: string | null }) {
+  if (status === 'sucesso') return <CheckCircle2 className="h-4 w-4 text-green-500" />
+  if (status === 'erro') return <XCircle className="h-4 w-4 text-red-500" />
+  return <Clock className="h-4 w-4 text-muted-foreground" />
+}
 
 export default function CiclosPage() {
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
@@ -49,6 +58,13 @@ export default function CiclosPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<Ciclo | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [sendingId, setSendingId] = useState<string | null>(null)
+  const [dispararOpen, setDispararOpen] = useState(false)
+  const [dispararAll, setDispararAll] = useState(false)
+
+  const vencidos = ciclos.filter(
+    (c) => c.ativo && c.proximaNotificacao && new Date(c.proximaNotificacao) <= new Date(),
+  )
 
   async function load() {
     try {
@@ -60,9 +76,7 @@ export default function CiclosPage() {
       if (resCiclos.status === 'fulfilled') setCiclos(resCiclos.value.data)
       else toast.error('Erro ao carregar ciclos')
       if (resClientes.status === 'fulfilled') setClientes(resClientes.value.data)
-      else toast.error('Erro ao carregar clientes')
       if (resProdutos.status === 'fulfilled') setProdutos(resProdutos.value.data)
-      else toast.error('Erro ao carregar produtos')
     } finally {
       setLoading(false)
     }
@@ -129,6 +143,39 @@ export default function CiclosPage() {
     }
   }
 
+  async function handleEnviarAgora(ciclo: Ciclo) {
+    setSendingId(ciclo.id)
+    try {
+      await api.post(`/ciclos/${ciclo.id}/enviar-lembrete`)
+      toast.success(`Lembrete enviado para ${ciclo.clienteNome}`)
+      setCiclos((prev) =>
+        prev.map((c) => c.id === ciclo.id ? { ...c, statusUltimoEnvio: 'sucesso' } : c),
+      )
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Erro ao enviar lembrete'
+      toast.error(msg)
+      setCiclos((prev) =>
+        prev.map((c) => c.id === ciclo.id ? { ...c, statusUltimoEnvio: 'erro' } : c),
+      )
+    } finally {
+      setSendingId(null)
+    }
+  }
+
+  async function handleDispararTodos() {
+    setDispararAll(true)
+    try {
+      const res = await api.post('/ciclos/disparar-todos')
+      toast.success(res.data.mensagem || `${res.data.total} lembretes em disparo`)
+      setDispararOpen(false)
+      setTimeout(load, 1000)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao disparar lembretes')
+    } finally {
+      setDispararAll(false)
+    }
+  }
+
   function formatDate(d?: string) {
     if (!d) return '—'
     return new Date(d).toLocaleDateString('pt-BR', {
@@ -153,10 +200,18 @@ export default function CiclosPage() {
             <h1 className="text-2xl font-bold">Ciclos de Recompra</h1>
             <p className="text-sm text-muted-foreground mt-1">{ciclos.length} ciclos ativos</p>
           </div>
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo ciclo
-          </Button>
+          <div className="flex gap-2">
+            {vencidos.length > 0 && (
+              <Button variant="outline" onClick={() => setDispararOpen(true)}>
+                <SendHorizonal className="h-4 w-4 mr-2" />
+                Disparar todos ({vencidos.length})
+              </Button>
+            )}
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo ciclo
+            </Button>
+          </div>
         </div>
 
         <div className="rounded-md border">
@@ -171,21 +226,22 @@ export default function CiclosPage() {
                   <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Próx. lembrete</span>
                 </TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-24" />
+                <TableHead>Último envio</TableHead>
+                <TableHead className="w-32" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : ciclos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                     Nenhum ciclo cadastrado
                   </TableCell>
                 </TableRow>
@@ -206,7 +262,29 @@ export default function CiclosPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      <span className="flex items-center gap-1.5">
+                        <StatusEnvioIcon status={c.statusUltimoEnvio} />
+                        <span className="text-xs text-muted-foreground">
+                          {c.statusUltimoEnvio === 'sucesso' ? 'Enviado'
+                            : c.statusUltimoEnvio === 'erro' ? 'Erro'
+                            : 'Pendente'}
+                        </span>
+                      </span>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEnviarAgora(c)}
+                          disabled={sendingId === c.id}
+                          title="Enviar lembrete agora"
+                        >
+                          {sendingId === c.id
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Send className="h-3.5 w-3.5" />}
+                          <span className="ml-1 text-xs">Enviar</span>
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => openEdit(c)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -223,6 +301,7 @@ export default function CiclosPage() {
         </div>
       </div>
 
+      {/* Modal: novo / editar ciclo */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
@@ -286,6 +365,32 @@ export default function CiclosPage() {
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: disparar todos */}
+      <Dialog open={dispararOpen} onOpenChange={setDispararOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disparar lembretes em massa</DialogTitle>
+            <DialogDescription>
+              {vencidos.length === 0
+                ? 'Nenhum ciclo vencido no momento.'
+                : `${vencidos.length} ciclo${vencidos.length > 1 ? 's' : ''} vencido${vencidos.length > 1 ? 's' : ''} receberá${vencidos.length > 1 ? 'ão' : ''} um lembrete agora.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 text-sm text-muted-foreground">
+            As mensagens são enviadas com <strong>5 segundos de intervalo</strong> entre cada uma para evitar bloqueio do WhatsApp.
+            O processo roda em segundo plano — você pode fechar esta janela.
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDispararOpen(false)}>Cancelar</Button>
+            <Button onClick={handleDispararTodos} disabled={dispararAll || vencidos.length === 0}>
+              {dispararAll
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Disparando...</>
+                : <><SendHorizonal className="mr-2 h-4 w-4" />Disparar {vencidos.length} lembrete{vencidos.length !== 1 ? 's' : ''}</>}
             </Button>
           </DialogFooter>
         </DialogContent>
