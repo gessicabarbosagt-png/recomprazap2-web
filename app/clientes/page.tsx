@@ -64,12 +64,18 @@ export default function ClientesPage() {
   async function handleSave() {
     if (!form.nome || !form.telefone) return toast.error('Nome e telefone são obrigatórios')
     setSaving(true)
+    // Omite email do payload se vazio para não disparar validação de formato no backend
+    const payload = {
+      nome: form.nome,
+      telefone: form.telefone,
+      ...(form.email.trim() ? { email: form.email.trim() } : {}),
+    }
     try {
       if (editing) {
-        await api.patch(`/clientes/${editing.id}`, form)
+        await api.patch(`/clientes/${editing.id}`, payload)
         toast.success('Cliente atualizado')
       } else {
-        await api.post('/clientes', { ...form, consentimentoWhatsapp: true })
+        await api.post('/clientes', { ...payload, consentimentoWhatsapp: true })
         toast.success('Cliente criado')
       }
       setOpen(false)
@@ -176,7 +182,7 @@ export default function ClientesPage() {
               <Input value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label>E-mail</Label>
+              <Label>E-mail <span className="text-muted-foreground font-normal">(opcional)</span></Label>
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
           </div>
