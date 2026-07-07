@@ -12,6 +12,7 @@ import {
   Package,
   RefreshCw,
   MessageSquare,
+  GitBranch,
   Settings,
   LogOut,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ const nav = [
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/ciclos', label: 'Ciclos de Recompra', icon: RefreshCw },
   { href: '/mensagens', label: 'Mensagens', icon: MessageSquare },
+  { href: '/fluxo', label: 'Fluxo de Conversa', icon: GitBranch },
 ]
 
 const navBottom = [
