@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Send, MessageSquare, Loader2, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import { Send, MessageSquare, Loader2, RefreshCw, Wifi, WifiOff, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Mensagem {
   id: string
+  clienteId?: string
   telefone: string
   clienteNome?: string
   conteudo: string
@@ -22,14 +23,17 @@ interface Mensagem {
   tipo?: 'lembrete' | 'manual'
   lida?: boolean
   criadoEm: string
+  origemLead?: string | null
 }
 
 interface Conversa {
   telefone: string
+  clienteId: string | null
   clienteNome: string
   ultimaMensagem: string
   ultimaData: string
   naoLidas: number
+  origemLead?: string | null
 }
 
 type StatusWA = 'conectado' | 'aguardando' | 'desconectado'
@@ -80,6 +84,7 @@ export default function MensagensPage() {
   const [conversaAtiva, setConversaAtiva] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const [excluindo, setExcluindo] = useState(false)
   const [texto, setTexto] = useState('')
   const [statusWA, setStatusWA] = useState<StatusWA>('desconectado')
   const [atualizando, setAtualizando] = useState(false)
@@ -102,7 +107,6 @@ export default function MensagensPage() {
     bottomRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
   }
 
-  // Ao trocar de conversa: sempre vai para o fundo
   useEffect(() => {
     if (conversaAtiva !== conversaAtivaRef.current) {
       conversaAtivaRef.current = conversaAtiva
@@ -110,7 +114,6 @@ export default function MensagensPage() {
     }
   }, [conversaAtiva])
 
-  // Ao chegarem novas mensagens: só rola se já estava no fundo
   useEffect(() => {
     const ativas = mensagens.filter((m) => m.telefone === conversaAtiva)
     if (ativas.length > prevCountRef.current && isNearBottom()) {
@@ -179,10 +182,12 @@ export default function MensagensPage() {
         )
         return {
           telefone,
+          clienteId: sorted[0].clienteId ?? null,
           clienteNome: sorted[0].clienteNome ?? telefone,
           ultimaMensagem: sorted[0].conteudo,
           ultimaData: sorted[0].criadoEm,
           naoLidas: msgs.filter((m) => m.direcao === 'recebida' && !m.lida).length,
+          origemLead: sorted[0].origemLead ?? null,
         }
       })
       .sort((a, b) => new Date(b.ultimaData).getTime() - new Date(a.ultimaData).getTime())
@@ -216,6 +221,26 @@ export default function MensagensPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleEnviar()
+    }
+  }
+
+  // ── Excluir conversa ─────────────────────────────────────────────────────────
+
+  async function handleExcluirConversa() {
+    if (!conversaAtivaInfo?.clienteId) return
+    const nome = conversaAtivaInfo.clienteNome
+    if (!confirm(`Excluir toda a conversa com ${nome}?\n\nAs mensagens serão removidas do inbox. Esta ação não pode ser desfeita.`)) return
+
+    setExcluindo(true)
+    try {
+      await api.delete(`/whatsapp/conversas/${conversaAtivaInfo.clienteId}`)
+      toast.success(`Conversa com ${nome} excluída`)
+      setConversaAtiva(null)
+      await fetchMensagens(true)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao excluir conversa')
+    } finally {
+      setExcluindo(false)
     }
   }
 
@@ -306,13 +331,29 @@ export default function MensagensPage() {
             <>
               {/* Header da conversa */}
               <div className="px-4 py-3 border-b flex items-center gap-3 flex-shrink-0">
-                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium flex-shrink-0">
                   {conversaAtivaInfo.clienteNome.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold">{conversaAtivaInfo.clienteNome}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold truncate">{conversaAtivaInfo.clienteNome}</p>
+                    <OrigemLeadBadge origem={conversaAtivaInfo.origemLead} />
+                  </div>
                   <p className="text-xs text-muted-foreground">{conversaAtiva}</p>
                 </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleExcluirConversa}
+                  disabled={excluindo || !conversaAtivaInfo.clienteId}
+                  title="Excluir conversa"
+                  className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+                >
+                  {excluindo
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Trash2 className="h-4 w-4" />
+                  }
+                </Button>
               </div>
 
               {/* Histórico */}
@@ -400,6 +441,25 @@ export default function MensagensPage() {
         </section>
       </div>
     </LayoutShell>
+  )
+}
+
+// ─── Badge de origem do lead ──────────────────────────────────────────────────
+
+const ORIGENS_MSG: Record<string, { label: string; className: string }> = {
+  meta_ads:  { label: 'Meta Ads',  className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  importado: { label: 'Importado', className: 'bg-gray-100 text-gray-600 border-gray-200' },
+}
+
+function OrigemLeadBadge({ origem }: { origem?: string | null }) {
+  if (!origem) return null
+  const cfg = ORIGENS_MSG[origem]
+  const label = cfg?.label ?? origem
+  const cls = cfg?.className ?? 'bg-violet-100 text-violet-700 border-violet-200'
+  return (
+    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
+      {label}
+    </span>
   )
 }
 

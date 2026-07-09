@@ -5,7 +5,7 @@ import { LayoutShell } from '@/components/app/layout-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import { Users, Package, RefreshCw, Bell, ShoppingBag } from 'lucide-react'
+import { Users, Package, RefreshCw, Bell, ShoppingBag, Tag } from 'lucide-react'
 
 interface Resumo {
   total: number
@@ -22,29 +22,47 @@ interface ResumoPedidos {
   cancelados: number
 }
 
+interface OrigemResumo {
+  origem: string
+  total: number
+}
+
+const ORIGEM_LABELS: Record<string, string> = {
+  meta_ads:    'Meta Ads',
+  importado:   'Importado',
+  sem_origem:  'Sem origem',
+}
+
+function origemLabel(o: string) {
+  return ORIGEM_LABELS[o] ?? o
+}
+
 export default function DashboardPage() {
   const [lembretesResumo, setLembretesResumo] = useState<Resumo | null>(null)
   const [pedidosResumo, setPedidosResumo] = useState<ResumoPedidos | null>(null)
   const [totalClientes, setTotalClientes] = useState<number | null>(null)
   const [totalProdutos, setTotalProdutos] = useState<number | null>(null)
   const [totalCiclos, setTotalCiclos] = useState<number | null>(null)
+  const [origens, setOrigens] = useState<OrigemResumo[] | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const [lembretes, pedidos, clientes, produtos, ciclos] = await Promise.all([
+        const [lembretes, pedidos, clientes, produtos, ciclos, origensData] = await Promise.all([
           api.get('/lembretes/resumo?dias=30'),
           api.get('/pedidos/resumo?dias=30'),
           api.get('/clientes'),
           api.get('/produtos'),
           api.get('/ciclos'),
+          api.get('/clientes/origens?dias=30'),
         ])
         setLembretesResumo(lembretes.data)
         setPedidosResumo(pedidos.data)
         setTotalClientes(clientes.data.length)
         setTotalProdutos(produtos.data.length)
         setTotalCiclos(ciclos.data.length)
+        setOrigens(origensData.data)
       } catch {
         // silently fail — cards will show skeleton
       } finally {
@@ -87,6 +105,8 @@ export default function DashboardPage() {
     },
   ]
 
+  const totalOrigem = origens?.reduce((sum, o) => sum + o.total, 0) ?? 0
+
   return (
     <LayoutShell>
       <div className="space-y-6">
@@ -115,6 +135,46 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
+
+        {/* Origem dos leads */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Novos clientes por origem (30d)
+            </CardTitle>
+            <Tag className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-6 w-full" />
+                ))}
+              </div>
+            ) : !origens || origens.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum cliente novo no período</p>
+            ) : (
+              <div className="space-y-2">
+                {origens.map((o) => {
+                  const pct = totalOrigem > 0 ? Math.round((o.total / totalOrigem) * 100) : 0
+                  return (
+                    <div key={o.origem} className="flex items-center gap-3">
+                      <span className="text-sm w-32 truncate">{origemLabel(o.origem)}</span>
+                      <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-2 rounded-full bg-primary transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium w-8 text-right">{o.total}</span>
+                      <span className="text-xs text-muted-foreground w-8">{pct}%</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </LayoutShell>
   )

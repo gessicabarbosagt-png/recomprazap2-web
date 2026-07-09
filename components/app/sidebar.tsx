@@ -15,6 +15,7 @@ import {
   GitBranch,
   Settings,
   LogOut,
+  Tag,
 } from 'lucide-react'
 
 const nav = [
@@ -24,6 +25,7 @@ const nav = [
   { href: '/ciclos', label: 'Ciclos de Recompra', icon: RefreshCw },
   { href: '/mensagens', label: 'Mensagens', icon: MessageSquare },
   { href: '/fluxo', label: 'Fluxo de Conversa', icon: GitBranch },
+  { href: '/codigos-origem', label: 'Origem de Leads', icon: Tag },
 ]
 
 const navBottom = [
