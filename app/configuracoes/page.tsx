@@ -173,9 +173,9 @@ export default function ConfiguracoesPage() {
             <div className="flex items-start gap-3">
               <MessageSquare className="h-5 w-5 mt-0.5 text-muted-foreground" />
               <div>
-                <CardTitle>Mensagens e fluxo de conversa</CardTitle>
+                <CardTitle>Modelo de mensagem</CardTitle>
                 <CardDescription className="mt-1">
-                  Personalize o texto dos lembretes, as respostas automáticas e as ações do bot.
+                  As mensagens dos lembretes agora são editadas junto com o fluxo de conversa.
                 </CardDescription>
               </div>
             </div>
@@ -183,7 +183,7 @@ export default function ConfiguracoesPage() {
           <CardContent>
             <Button asChild>
               <Link href="/fluxo">
-                Editar mensagens e fluxo de conversa
+                Editar fluxo de conversa
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Link>
             </Button>
