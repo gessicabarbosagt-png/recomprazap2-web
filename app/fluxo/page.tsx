@@ -97,10 +97,14 @@ export default function FluxoPage() {
     setLoading(true)
     try {
       const { data } = await api.get('/fluxo-conversa')
+      const rawOpcoes = data.opcoes ?? data.Opcoes ?? []
+      const parsedOpcoes: any[] = typeof rawOpcoes === 'string'
+        ? (() => { try { return JSON.parse(rawOpcoes) } catch { return [] } })()
+        : rawOpcoes
       reset({
         mensagem_lembrete: data.mensagem_lembrete ?? data.mensagemLembrete ?? '',
         mensagem_fallback: data.mensagem_fallback ?? data.mensagemFallback ?? '',
-        opcoes: (data.opcoes ?? []).map((o: any) => ({
+        opcoes: parsedOpcoes.map((o: any) => ({
           gatilho: o.gatilho,
           rotulo: o.rotulo,
           mensagem_resposta: o.mensagem_resposta,
