@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { LayoutShell } from '@/components/app/layout-shell'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
@@ -18,6 +18,7 @@ type Status = 'conectado' | 'desconectado' | 'aguardando'
 const QR_REFRESH_MS = 14_000
 
 export default function ConfiguracoesPage() {
+  const router = useRouter()
   const [status, setStatus] = useState<Status>('desconectado')
   const [qrValue, setQrValue] = useState<string | null>(null)
   const [loadingQr, setLoadingQr] = useState(false)
@@ -181,11 +182,9 @@ export default function ConfiguracoesPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Button asChild>
-              <Link href="/fluxo">
-                Editar fluxo de conversa
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Link>
+            <Button onClick={() => router.push('/fluxo')}>
+              Editar fluxo de conversa
+              <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </CardContent>
         </Card>
