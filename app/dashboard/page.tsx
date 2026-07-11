@@ -5,7 +5,7 @@ import { LayoutShell } from '@/components/app/layout-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import { Users, Package, RefreshCw, Bell, ShoppingBag, Tag } from 'lucide-react'
+import { Users, Package, RefreshCw, Bell, ShoppingBag, Tag, TrendingUp, CircleDollarSign } from 'lucide-react'
 
 interface Resumo {
   total: number
@@ -27,6 +27,13 @@ interface OrigemResumo {
   total: number
 }
 
+interface ResumoJornada {
+  totalPedidos: number
+  totalCompras: number
+  comprasSemValor: number
+  receitaConfirmada: number
+}
+
 const ORIGEM_LABELS: Record<string, string> = {
   meta_ads:    'Meta Ads',
   importado:   'Importado',
@@ -44,18 +51,20 @@ export default function DashboardPage() {
   const [totalProdutos, setTotalProdutos] = useState<number | null>(null)
   const [totalCiclos, setTotalCiclos] = useState<number | null>(null)
   const [origens, setOrigens] = useState<OrigemResumo[] | null>(null)
+  const [jornada, setJornada] = useState<ResumoJornada | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const [lembretes, pedidos, clientes, produtos, ciclos, origensData] = await Promise.all([
+        const [lembretes, pedidos, clientes, produtos, ciclos, origensData, jornadaData] = await Promise.all([
           api.get('/lembretes/resumo?dias=30'),
           api.get('/pedidos/resumo?dias=30'),
           api.get('/clientes'),
           api.get('/produtos'),
           api.get('/ciclos'),
           api.get('/clientes/origens?dias=30'),
+          api.get('/pedidos/resumo-jornada?dias=30'),
         ])
         setLembretesResumo(lembretes.data)
         setPedidosResumo(pedidos.data)
@@ -63,6 +72,7 @@ export default function DashboardPage() {
         setTotalProdutos(produtos.data.length)
         setTotalCiclos(ciclos.data.length)
         setOrigens(origensData.data)
+        setJornada(jornadaData.data)
       } catch {
         // silently fail — cards will show skeleton
       } finally {
@@ -134,6 +144,52 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* Vendas confirmadas */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Vendas confirmadas (30d)</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {loading ? <Skeleton className="h-8 w-16" /> : (
+                <>
+                  <p className="text-3xl font-bold">{jornada?.totalCompras ?? '—'}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    de {jornada?.totalPedidos ?? '—'} pedidos
+                    {jornada && jornada.totalPedidos > 0 && (
+                      <> · {Math.round((jornada.totalCompras / jornada.totalPedidos) * 100)}% conversão</>
+                    )}
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Receita confirmada (30d)</CardTitle>
+              <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {loading ? <Skeleton className="h-8 w-24" /> : (
+                <>
+                  <p className="text-3xl font-bold">
+                    {jornada
+                      ? `R$ ${Number(jornada.receitaConfirmada).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                      : '—'}
+                  </p>
+                  {jornada && jornada.comprasSemValor > 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      {jornada.comprasSemValor} venda{jornada.comprasSemValor > 1 ? 's' : ''} sem valor informado
+                    </p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Origem dos leads */}

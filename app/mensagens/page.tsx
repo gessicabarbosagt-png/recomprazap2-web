@@ -8,10 +8,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Send, MessageSquare, Loader2, RefreshCw, Wifi, WifiOff, Trash2 } from 'lucide-react'
+import { Send, MessageSquare, Loader2, RefreshCw, Wifi, WifiOff, Trash2, ShoppingBag, ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type StatusJornada = 'aguardando' | 'orcamento_enviado' | 'comprou' | 'nao_comprou'
+
+interface PedidoAberto {
+  id: string
+  statusJornada: StatusJornada
+  valor: number | null
+  produtoNome: string | null
+  createdAt: string
+}
 
 interface Mensagem {
   id: string
@@ -88,6 +98,10 @@ export default function MensagensPage() {
   const [texto, setTexto] = useState('')
   const [statusWA, setStatusWA] = useState<StatusWA>('desconectado')
   const [atualizando, setAtualizando] = useState(false)
+  const [pedidoAberto, setPedidoAberto] = useState<PedidoAberto | null>(null)
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false)
+  const [valorInput, setValorInput] = useState('')
+  const [salvandoJornada, setSalvandoJornada] = useState(false)
 
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -112,6 +126,16 @@ export default function MensagensPage() {
       conversaAtivaRef.current = conversaAtiva
       setTimeout(() => scrollToBottom(true), 0)
     }
+    // Busca pedido aberto da conversa selecionada
+    setPedidoAberto(null)
+    setStatusMenuOpen(false)
+    const clienteId = conversas.find((c) => c.telefone === conversaAtiva)?.clienteId
+    if (clienteId) {
+      api.get(`/pedidos/cliente/${clienteId}/aberto`)
+        .then(({ data }) => setPedidoAberto(data ?? null))
+        .catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversaAtiva])
 
   useEffect(() => {
@@ -221,6 +245,31 @@ export default function MensagensPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleEnviar()
+    }
+  }
+
+  // ── Atualizar jornada do pedido ──────────────────────────────────────────────
+
+  async function atualizarJornada(novoStatus: StatusJornada, valor?: number | null) {
+    if (!pedidoAberto) return
+    setSalvandoJornada(true)
+    try {
+      const { data } = await api.patch(`/pedidos/${pedidoAberto.id}/jornada`, {
+        statusJornada: novoStatus,
+        valor: valor ?? undefined,
+      })
+      setPedidoAberto(
+        ['comprou', 'nao_comprou'].includes(novoStatus)
+          ? null
+          : { ...pedidoAberto, statusJornada: data.statusJornada, valor: data.valor },
+      )
+      setStatusMenuOpen(false)
+      setValorInput('')
+      toast.success('Status do pedido atualizado')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Erro ao atualizar pedido')
+    } finally {
+      setSalvandoJornada(false)
     }
   }
 
@@ -335,9 +384,50 @@ export default function MensagensPage() {
                   {conversaAtivaInfo.clienteNome.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold truncate">{conversaAtivaInfo.clienteNome}</p>
                     <OrigemLeadBadge origem={conversaAtivaInfo.origemLead} />
+                    {pedidoAberto && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setStatusMenuOpen((o) => !o)}
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors"
+                        >
+                          <ShoppingBag className="h-2.5 w-2.5" />
+                          {JORNADA_LABELS[pedidoAberto.statusJornada]}
+                          <ChevronDown className="h-2.5 w-2.5" />
+                        </button>
+                        {statusMenuOpen && (
+                          <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-md shadow-md w-52 py-1 text-sm">
+                            {JORNADA_OPCOES.map((op) => (
+                              <button
+                                key={op.value}
+                                type="button"
+                                disabled={salvandoJornada}
+                                onClick={() => {
+                                  setStatusMenuOpen(false)
+                                  if (op.value === 'comprou') {
+                                    setValorInput('')
+                                    // mostra via estado separado
+                                    setSalvandoJornada(false)
+                                    setPedidoAberto({ ...pedidoAberto, statusJornada: 'comprou' })
+                                  } else {
+                                    atualizarJornada(op.value as StatusJornada)
+                                  }
+                                }}
+                                className="w-full text-left px-3 py-1.5 hover:bg-accent flex items-center gap-2 disabled:opacity-50"
+                              >
+                                {pedidoAberto.statusJornada === op.value
+                                  ? <Check className="h-3 w-3" />
+                                  : <span className="w-3" />}
+                                {op.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">{conversaAtiva}</p>
                 </div>
@@ -355,6 +445,40 @@ export default function MensagensPage() {
                   }
                 </Button>
               </div>
+
+              {/* Banner de confirmação de compra com valor */}
+              {pedidoAberto?.statusJornada === 'comprou' && (
+                <div className="px-4 py-2 border-b bg-emerald-50 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-emerald-700 font-medium">Marcar como comprou — Valor (opcional):</span>
+                  <input
+                    id="valor-comprou-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={valorInput}
+                    onChange={(e) => setValorInput(e.target.value)}
+                    className="w-24 rounded border border-emerald-300 bg-white px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    onKeyDown={(e) => e.key === 'Enter' && atualizarJornada('comprou', valorInput ? parseFloat(valorInput) : null)}
+                  />
+                  <Button
+                    size="sm"
+                    className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => atualizarJornada('comprou', valorInput ? parseFloat(valorInput) : null)}
+                    disabled={salvandoJornada}
+                  >
+                    {salvandoJornada ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirmar'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-xs"
+                    onClick={() => setPedidoAberto(null)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              )}
 
               {/* Histórico */}
               <div ref={scrollAreaRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -443,6 +567,22 @@ export default function MensagensPage() {
     </LayoutShell>
   )
 }
+
+// ─── Jornada de compra ───────────────────────────────────────────────────────
+
+const JORNADA_LABELS: Record<StatusJornada, string> = {
+  aguardando:        'Aguardando',
+  orcamento_enviado: 'Orçamento enviado',
+  comprou:           'Comprou',
+  nao_comprou:       'Não comprou',
+}
+
+const JORNADA_OPCOES: { value: StatusJornada; label: string }[] = [
+  { value: 'aguardando',        label: 'Aguardando' },
+  { value: 'orcamento_enviado', label: 'Orçamento enviado' },
+  { value: 'comprou',           label: 'Comprou ✓' },
+  { value: 'nao_comprou',       label: 'Não comprou' },
+]
 
 // ─── Badge de origem do lead ──────────────────────────────────────────────────
 
