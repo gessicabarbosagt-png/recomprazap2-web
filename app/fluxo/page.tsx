@@ -469,12 +469,15 @@ function VariaveisHint() {
   return (
     <div className="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
       <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-      <span>
-        Variáveis disponíveis:{' '}
-        {['{nome}', '{produto}', '{quantidade}', '{loja}'].map((v) => (
-          <code key={v} className="bg-muted rounded px-1 mr-1">{v}</code>
-        ))}
-      </span>
+      <div>
+        <p className="font-medium mb-1">Variáveis disponíveis:</p>
+        <ul className="space-y-0.5">
+          <li><code className="bg-muted rounded px-1">{'{nome}'}</code> — nome do cliente</li>
+          <li><code className="bg-muted rounded px-1">{'{produto}'}</code> — nome do produto</li>
+          <li><code className="bg-muted rounded px-1">{'{quantidade}'}</code> — quantidade com unidade, ex: <em>(2 kg)</em></li>
+          <li><code className="bg-muted rounded px-1">{'{loja}'}</code> — nome da sua loja</li>
+        </ul>
+      </div>
     </div>
   )
 }
