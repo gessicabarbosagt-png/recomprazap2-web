@@ -16,6 +16,7 @@ import {
   Settings,
   LogOut,
   Tag,
+  KanbanSquare,
 } from 'lucide-react'
 
 const nav = [
@@ -25,6 +26,7 @@ const nav = [
   { href: '/ciclos', label: 'Ciclos de Recompra', icon: RefreshCw },
   { href: '/mensagens', label: 'Mensagens', icon: MessageSquare },
   { href: '/fluxo', label: 'Fluxo de Conversa', icon: GitBranch },
+  { href: '/jornada', label: 'Jornada de Compra', icon: KanbanSquare },
   { href: '/codigos-origem', label: 'Origem de Leads', icon: Tag },
 ]
 

@@ -8,19 +8,53 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Send, MessageSquare, Loader2, RefreshCw, Wifi, WifiOff, Trash2, ShoppingBag, ChevronDown, Check } from 'lucide-react'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Send, MessageSquare, Loader2, RefreshCw, Wifi, WifiOff,
+  Trash2, ShoppingBag, ChevronDown, Check, History, Plus,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type StatusJornada = 'aguardando' | 'orcamento_enviado' | 'comprou' | 'nao_comprou'
 
+interface Etapa {
+  id: string
+  nome: string
+  ordem: number
+  tipo: 'intermediaria' | 'final_comprou' | 'final_nao_comprou'
+  ativo: boolean
+}
+
 interface PedidoAberto {
   id: string
   statusJornada: StatusJornada
+  etapaId: string | null
+  etapaNome: string | null
+  etapaTipo: string | null
   valor: number | null
   produtoNome: string | null
   createdAt: string
+}
+
+interface PedidoFechado {
+  id: string
+  statusJornada: StatusJornada
+  etapaId: string | null
+  etapaNome: string | null
+  etapaTipo: string | null
+  valor: number | null
+  createdAt: string
+  confirmadoEm: string | null
+}
+
+interface BuscarAbertoResponse {
+  pedidoAberto: PedidoAberto | null
+  ultimoPedidoFechado: PedidoFechado | null
+  historico: PedidoFechado[]
 }
 
 interface Mensagem {
@@ -64,6 +98,10 @@ function formatDataCurta(iso: string) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
+function formatDataCompleta(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 function formatDataDivisor(iso: string) {
   const d = new Date(iso)
   const hoje = new Date()
@@ -72,6 +110,11 @@ function formatDataDivisor(iso: string) {
   ontem.setDate(hoje.getDate() - 1)
   if (d.toDateString() === ontem.toDateString()) return 'Ontem'
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+function formatValor(v: number | null | undefined) {
+  if (v == null) return '—'
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function agruparPorData(mensagens: Mensagem[]): { data: string; itens: Mensagem[] }[] {
@@ -91,6 +134,7 @@ function agruparPorData(mensagens: Mensagem[]): { data: string; itens: Mensagem[
 
 export default function MensagensPage() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([])
+  const [etapas, setEtapas] = useState<Etapa[]>([])
   const [conversaAtiva, setConversaAtiva] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [enviando, setEnviando] = useState(false)
@@ -99,9 +143,17 @@ export default function MensagensPage() {
   const [statusWA, setStatusWA] = useState<StatusWA>('desconectado')
   const [atualizando, setAtualizando] = useState(false)
   const [pedidoAberto, setPedidoAberto] = useState<PedidoAberto | null>(null)
+  const [ultimoPedidoFechado, setUltimoPedidoFechado] = useState<PedidoFechado | null>(null)
+  const [historico, setHistorico] = useState<PedidoFechado[]>([])
   const [statusMenuOpen, setStatusMenuOpen] = useState(false)
   const [valorInput, setValorInput] = useState('')
   const [salvandoJornada, setSalvandoJornada] = useState(false)
+  const [etapaParaConfirmar, setEtapaParaConfirmar] = useState<Etapa | null>(null)
+  const [historicoOpen, setHistoricoOpen] = useState(false)
+  const [novoPedidoMenuOpen, setNovoPedidoMenuOpen] = useState(false)
+  const [novoPedidoValor, setNovoPedidoValor] = useState('')
+  const [novoPedidoMode, setNovoPedidoMode] = useState<'interesse' | 'compra' | null>(null)
+  const [criandoPedido, setCriandoPedido] = useState(false)
 
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -128,11 +180,19 @@ export default function MensagensPage() {
     }
     // Busca pedido aberto da conversa selecionada
     setPedidoAberto(null)
+    setUltimoPedidoFechado(null)
+    setHistorico([])
     setStatusMenuOpen(false)
+    setNovoPedidoMenuOpen(false)
     const clienteId = conversas.find((c) => c.telefone === conversaAtiva)?.clienteId
     if (clienteId) {
       api.get(`/pedidos/cliente/${clienteId}/aberto`)
-        .then(({ data }) => setPedidoAberto(data ?? null))
+        .then(({ data }) => {
+          const resp = data as BuscarAbertoResponse
+          setPedidoAberto(resp.pedidoAberto ?? null)
+          setUltimoPedidoFechado(resp.ultimoPedidoFechado ?? null)
+          setHistorico(resp.historico ?? [])
+        })
         .catch(() => {})
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,6 +219,17 @@ export default function MensagensPage() {
     }
   }, [])
 
+  // ── Carrega etapas da jornada ────────────────────────────────────────────────
+
+  const fetchEtapas = useCallback(async () => {
+    try {
+      const { data } = await api.get('/etapas-jornada')
+      setEtapas(Array.isArray(data) ? data : [])
+    } catch {
+      // silencioso — etapas são auxiliares
+    }
+  }, [])
+
   // ── Polling de status do WhatsApp (10s) ──────────────────────────────────────
 
   const fetchStatus = useCallback(async () => {
@@ -173,6 +244,7 @@ export default function MensagensPage() {
   useEffect(() => {
     fetchMensagens(false)
     fetchStatus()
+    fetchEtapas()
 
     const msgInterval = setInterval(() => fetchMensagens(true), 5_000)
     const statusInterval = setInterval(fetchStatus, 10_000)
@@ -181,7 +253,7 @@ export default function MensagensPage() {
       clearInterval(msgInterval)
       clearInterval(statusInterval)
     }
-  }, [fetchMensagens, fetchStatus])
+  }, [fetchMensagens, fetchStatus, fetchEtapas])
 
   // ── Refresh manual ───────────────────────────────────────────────────────────
 
@@ -250,26 +322,79 @@ export default function MensagensPage() {
 
   // ── Atualizar jornada do pedido ──────────────────────────────────────────────
 
-  async function atualizarJornada(novoStatus: StatusJornada, valor?: number | null) {
+  async function atualizarJornada(etapa: Etapa, valor?: number | null) {
     if (!pedidoAberto) return
     setSalvandoJornada(true)
     try {
-      const { data } = await api.patch(`/pedidos/${pedidoAberto.id}/jornada`, {
-        statusJornada: novoStatus,
+      await api.patch(`/pedidos/${pedidoAberto.id}/jornada`, {
+        etapaId: etapa.id,
         valor: valor ?? undefined,
       })
-      setPedidoAberto(
-        ['comprou', 'nao_comprou'].includes(novoStatus)
-          ? null
-          : { ...pedidoAberto, statusJornada: data.statusJornada, valor: data.valor },
-      )
+      const isFinal = etapa.tipo === 'final_comprou' || etapa.tipo === 'final_nao_comprou'
+      if (isFinal) {
+        setPedidoAberto(null)
+      } else {
+        setPedidoAberto({
+          ...pedidoAberto,
+          etapaId: etapa.id,
+          etapaNome: etapa.nome,
+          etapaTipo: etapa.tipo,
+        })
+      }
       setStatusMenuOpen(false)
+      setEtapaParaConfirmar(null)
       setValorInput('')
       toast.success('Status do pedido atualizado')
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Erro ao atualizar pedido')
     } finally {
       setSalvandoJornada(false)
+    }
+  }
+
+  // ── Criar novo pedido ────────────────────────────────────────────────────────
+
+  async function criarNovoPedido(tipo: 'interesse' | 'compra', valor?: number | null) {
+    const clienteId = conversaAtivaInfo?.clienteId
+    if (!clienteId) return
+
+    let etapaAlvo: Etapa | undefined
+    if (tipo === 'interesse') {
+      etapaAlvo = etapas.filter((e) => e.tipo === 'intermediaria' && e.ativo).sort((a, b) => a.ordem - b.ordem)[0]
+    } else {
+      etapaAlvo = etapas.find((e) => e.tipo === 'final_comprou')
+    }
+
+    if (!etapaAlvo) {
+      toast.error('Nenhuma etapa configurada. Configure as etapas da jornada primeiro.')
+      return
+    }
+
+    setCriandoPedido(true)
+    try {
+      await api.post('/pedidos', {
+        clienteId,
+        etapaId: etapaAlvo.id,
+        valor: valor ?? undefined,
+      })
+      toast.success(tipo === 'interesse' ? 'Pedido de interesse registrado' : 'Compra registrada')
+      setNovoPedidoMenuOpen(false)
+      setNovoPedidoMode(null)
+      setNovoPedidoValor('')
+
+      // Recarrega pedido aberto
+      api.get(`/pedidos/cliente/${clienteId}/aberto`)
+        .then(({ data }) => {
+          const resp = data as BuscarAbertoResponse
+          setPedidoAberto(resp.pedidoAberto ?? null)
+          setUltimoPedidoFechado(resp.ultimoPedidoFechado ?? null)
+          setHistorico(resp.historico ?? [])
+        })
+        .catch(() => {})
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Erro ao criar pedido')
+    } finally {
+      setCriandoPedido(false)
     }
   }
 
@@ -387,43 +512,146 @@ export default function MensagensPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold truncate">{conversaAtivaInfo.clienteNome}</p>
                     <OrigemLeadBadge origem={conversaAtivaInfo.origemLead} />
+
+                    {/* Etiqueta de pedido aberto */}
                     {pedidoAberto && (
                       <div className="relative">
                         <button
                           type="button"
-                          onClick={() => setStatusMenuOpen((o) => !o)}
+                          onClick={() => { setStatusMenuOpen((o) => !o); setNovoPedidoMenuOpen(false) }}
                           className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors"
                         >
                           <ShoppingBag className="h-2.5 w-2.5" />
-                          {JORNADA_LABELS[pedidoAberto.statusJornada]}
+                          {pedidoAberto.etapaNome ?? pedidoAberto.statusJornada}
                           <ChevronDown className="h-2.5 w-2.5" />
                         </button>
                         {statusMenuOpen && (
                           <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-md shadow-md w-52 py-1 text-sm">
-                            {JORNADA_OPCOES.map((op) => (
+                            {etapas.map((etapa) => (
                               <button
-                                key={op.value}
+                                key={etapa.id}
                                 type="button"
                                 disabled={salvandoJornada}
                                 onClick={() => {
                                   setStatusMenuOpen(false)
-                                  if (op.value === 'comprou') {
+                                  if (etapa.tipo === 'final_comprou') {
                                     setValorInput('')
-                                    // mostra via estado separado
-                                    setSalvandoJornada(false)
-                                    setPedidoAberto({ ...pedidoAberto, statusJornada: 'comprou' })
+                                    setEtapaParaConfirmar(etapa)
                                   } else {
-                                    atualizarJornada(op.value as StatusJornada)
+                                    atualizarJornada(etapa)
                                   }
                                 }}
                                 className="w-full text-left px-3 py-1.5 hover:bg-accent flex items-center gap-2 disabled:opacity-50"
                               >
-                                {pedidoAberto.statusJornada === op.value
+                                {pedidoAberto.etapaId === etapa.id
                                   ? <Check className="h-3 w-3" />
                                   : <span className="w-3" />}
-                                {op.label}
+                                {etapa.nome}
+                                {etapa.tipo !== 'intermediaria' && (
+                                  <span className="ml-auto text-[10px] text-muted-foreground">Final</span>
+                                )}
                               </button>
                             ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Indicador de último pedido fechado (quando sem aberto) */}
+                    {!pedidoAberto && ultimoPedidoFechado && (
+                      <span className={cn(
+                        'text-[11px] font-medium',
+                        ultimoPedidoFechado.etapaTipo === 'final_comprou' ? 'text-emerald-600' : 'text-muted-foreground',
+                      )}>
+                        {ultimoPedidoFechado.etapaTipo === 'final_comprou'
+                          ? `Última compra: ${formatDataCompleta(ultimoPedidoFechado.createdAt)} · ${formatValor(ultimoPedidoFechado.valor)}`
+                          : `Não comprou em ${formatDataCompleta(ultimoPedidoFechado.createdAt)}`
+                        }
+                      </span>
+                    )}
+
+                    {/* Botão histórico */}
+                    {historico.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setHistoricoOpen(true)}
+                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <History className="h-3 w-3" />
+                        Ver histórico ({historico.length})
+                      </button>
+                    )}
+
+                    {/* Botão + Pedido (quando sem pedido aberto) */}
+                    {!pedidoAberto && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => { setNovoPedidoMenuOpen((o) => !o); setStatusMenuOpen(false) }}
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium bg-background border-border text-foreground hover:bg-accent transition-colors"
+                        >
+                          <Plus className="h-2.5 w-2.5" />
+                          Pedido
+                        </button>
+                        {novoPedidoMenuOpen && (
+                          <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-md shadow-md w-56 py-1 text-sm">
+                            {novoPedidoMode === null ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setNovoPedidoMode('interesse')}
+                                  className="w-full text-left px-3 py-1.5 hover:bg-accent"
+                                >
+                                  Registrar interesse
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNovoPedidoMode('compra')}
+                                  className="w-full text-left px-3 py-1.5 hover:bg-accent"
+                                >
+                                  Registrar compra (com valor)
+                                </button>
+                              </>
+                            ) : (
+                              <div className="px-3 py-2 space-y-2">
+                                {novoPedidoMode === 'compra' && (
+                                  <input
+                                    autoFocus
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="Valor (opcional)"
+                                    value={novoPedidoValor}
+                                    onChange={(e) => setNovoPedidoValor(e.target.value)}
+                                    className="w-full rounded border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') criarNovoPedido('compra', novoPedidoValor ? parseFloat(novoPedidoValor) : null)
+                                    }}
+                                  />
+                                )}
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="h-6 text-xs flex-1"
+                                    onClick={() => criarNovoPedido(
+                                      novoPedidoMode,
+                                      novoPedidoMode === 'compra' && novoPedidoValor ? parseFloat(novoPedidoValor) : null,
+                                    )}
+                                    disabled={criandoPedido}
+                                  >
+                                    {criandoPedido ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirmar'}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 text-xs"
+                                    onClick={() => { setNovoPedidoMode(null); setNovoPedidoValor('') }}
+                                  >
+                                    Voltar
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -447,9 +675,11 @@ export default function MensagensPage() {
               </div>
 
               {/* Banner de confirmação de compra com valor */}
-              {pedidoAberto?.statusJornada === 'comprou' && (
+              {etapaParaConfirmar !== null && (
                 <div className="px-4 py-2 border-b bg-emerald-50 flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-emerald-700 font-medium">Marcar como comprou — Valor (opcional):</span>
+                  <span className="text-xs text-emerald-700 font-medium">
+                    Marcar como {etapaParaConfirmar.nome} — Valor (opcional):
+                  </span>
                   <input
                     id="valor-comprou-input"
                     type="number"
@@ -459,12 +689,12 @@ export default function MensagensPage() {
                     value={valorInput}
                     onChange={(e) => setValorInput(e.target.value)}
                     className="w-24 rounded border border-emerald-300 bg-white px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                    onKeyDown={(e) => e.key === 'Enter' && atualizarJornada('comprou', valorInput ? parseFloat(valorInput) : null)}
+                    onKeyDown={(e) => e.key === 'Enter' && atualizarJornada(etapaParaConfirmar, valorInput ? parseFloat(valorInput) : null)}
                   />
                   <Button
                     size="sm"
                     className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => atualizarJornada('comprou', valorInput ? parseFloat(valorInput) : null)}
+                    onClick={() => atualizarJornada(etapaParaConfirmar, valorInput ? parseFloat(valorInput) : null)}
                     disabled={salvandoJornada}
                   >
                     {salvandoJornada ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirmar'}
@@ -473,14 +703,14 @@ export default function MensagensPage() {
                     size="sm"
                     variant="ghost"
                     className="h-6 text-xs"
-                    onClick={() => setPedidoAberto(null)}
+                    onClick={() => { setEtapaParaConfirmar(null); setValorInput('') }}
                   >
                     Cancelar
                   </Button>
                 </div>
               )}
 
-              {/* Histórico */}
+              {/* Histórico de mensagens */}
               <div ref={scrollAreaRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                 {grupos.map(({ data, itens }) => (
                   <div key={data}>
@@ -564,25 +794,41 @@ export default function MensagensPage() {
           )}
         </section>
       </div>
+
+      {/* ── Dialog de histórico de pedidos ──────────────────────────────────── */}
+      <Dialog open={historicoOpen} onOpenChange={setHistoricoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Histórico de pedidos</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {historico.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum pedido no histórico</p>
+            ) : (
+              historico.map((p) => (
+                <div key={p.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{p.etapaNome ?? p.statusJornada}</p>
+                    <p className="text-xs text-muted-foreground">{formatDataCompleta(p.createdAt)}</p>
+                  </div>
+                  <span className={cn(
+                    'text-sm font-medium',
+                    p.etapaTipo === 'final_comprou' ? 'text-emerald-600' : 'text-muted-foreground',
+                  )}>
+                    {formatValor(p.valor)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoricoOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </LayoutShell>
   )
 }
-
-// ─── Jornada de compra ───────────────────────────────────────────────────────
-
-const JORNADA_LABELS: Record<StatusJornada, string> = {
-  aguardando:        'Aguardando',
-  orcamento_enviado: 'Orçamento enviado',
-  comprou:           'Comprou',
-  nao_comprou:       'Não comprou',
-}
-
-const JORNADA_OPCOES: { value: StatusJornada; label: string }[] = [
-  { value: 'aguardando',        label: 'Aguardando' },
-  { value: 'orcamento_enviado', label: 'Orçamento enviado' },
-  { value: 'comprou',           label: 'Comprou ✓' },
-  { value: 'nao_comprou',       label: 'Não comprou' },
-]
 
 // ─── Badge de origem do lead ──────────────────────────────────────────────────
 
