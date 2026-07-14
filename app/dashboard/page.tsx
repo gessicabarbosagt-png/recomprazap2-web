@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { LayoutShell } from '@/components/app/layout-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import { Users, Package, RefreshCw, Bell, ShoppingBag, Tag, TrendingUp, CircleDollarSign } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface Resumo {
   total: number
@@ -34,6 +36,12 @@ interface ResumoJornada {
   receitaConfirmada: number
 }
 
+const PERIODOS = [
+  { label: '7d', dias: 7 },
+  { label: '30d', dias: 30 },
+  { label: '90d', dias: 90 },
+]
+
 const ORIGEM_LABELS: Record<string, string> = {
   meta_ads:    'Meta Ads',
   importado:   'Importado',
@@ -45,6 +53,8 @@ function origemLabel(o: string) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const [periodo, setPeriodo] = useState(30)
   const [lembretesResumo, setLembretesResumo] = useState<Resumo | null>(null)
   const [pedidosResumo, setPedidosResumo] = useState<ResumoPedidos | null>(null)
   const [totalClientes, setTotalClientes] = useState<number | null>(null)
@@ -56,15 +66,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
+      setLoading(true)
       try {
         const [lembretes, pedidos, clientes, produtos, ciclos, origensData, jornadaData] = await Promise.all([
-          api.get('/lembretes/resumo?dias=30'),
-          api.get('/pedidos/resumo?dias=30'),
+          api.get(`/lembretes/resumo?dias=${periodo}`),
+          api.get(`/pedidos/resumo?dias=${periodo}`),
           api.get('/clientes'),
           api.get('/produtos'),
           api.get('/ciclos'),
-          api.get('/clientes/origens?dias=30'),
-          api.get('/pedidos/resumo-jornada?dias=30'),
+          api.get(`/clientes/origens?dias=${periodo}`),
+          api.get(`/pedidos/resumo-jornada?dias=${periodo}`),
         ])
         setLembretesResumo(lembretes.data)
         setPedidosResumo(pedidos.data)
@@ -80,7 +91,9 @@ export default function DashboardPage() {
       }
     }
     load()
-  }, [])
+  }, [periodo])
+
+  const periodoParam = `${periodo}d`
 
   const cards = [
     {
@@ -102,13 +115,13 @@ export default function DashboardPage() {
       desc: 'em andamento',
     },
     {
-      title: 'Lembretes (30d)',
+      title: `Lembretes (${periodoParam})`,
       value: lembretesResumo?.total,
       icon: Bell,
       desc: `${lembretesResumo?.enviados ?? '—'} enviados`,
     },
     {
-      title: 'Pedidos (30d)',
+      title: `Pedidos (${periodoParam})`,
       value: pedidosResumo?.total,
       icon: ShoppingBag,
       desc: `${pedidosResumo?.pendentes ?? '—'} pendentes`,
@@ -120,9 +133,27 @@ export default function DashboardPage() {
   return (
     <LayoutShell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">Visão geral dos últimos 30 dias</p>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h1 className="text-2xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground text-sm mt-1">Visão geral dos últimos {periodo} dias</p>
+          </div>
+          <div className="flex items-center gap-1 rounded-md border p-0.5 bg-muted/40">
+            {PERIODOS.map((p) => (
+              <button
+                key={p.dias}
+                onClick={() => setPeriodo(p.dias)}
+                className={cn(
+                  'px-3 py-1 text-sm rounded transition-colors',
+                  periodo === p.dias
+                    ? 'bg-background shadow-sm font-medium text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -148,9 +179,14 @@ export default function DashboardPage() {
 
         {/* Vendas confirmadas */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card>
+          <Card
+            className="cursor-pointer transition-colors hover:bg-accent/50"
+            onClick={() => router.push(`/pedidos?etapa=comprou&periodo=${periodoParam}`)}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Vendas confirmadas (30d)</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Vendas confirmadas ({periodoParam})
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -158,7 +194,15 @@ export default function DashboardPage() {
                 <>
                   <p className="text-3xl font-bold">{jornada?.totalCompras ?? '—'}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    de {jornada?.totalPedidos ?? '—'} pedidos
+                    <span
+                      className="hover:underline cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/pedidos?periodo=${periodoParam}`)
+                      }}
+                    >
+                      de {jornada?.totalPedidos ?? '—'} pedidos
+                    </span>
                     {jornada && jornada.totalPedidos > 0 && (
                       <> · {Math.round((jornada.totalCompras / jornada.totalPedidos) * 100)}% conversão</>
                     )}
@@ -168,9 +212,14 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className="cursor-pointer transition-colors hover:bg-accent/50"
+            onClick={() => router.push(`/pedidos?etapa=comprou&periodo=${periodoParam}`)}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Receita confirmada (30d)</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Receita confirmada ({periodoParam})
+              </CardTitle>
               <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -178,7 +227,7 @@ export default function DashboardPage() {
                 <>
                   <p className="text-3xl font-bold">
                     {jornada
-                      ? `R$ ${Number(jornada.receitaConfirmada).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                      ? `R$ ${Number(jornada.receitaConfirmada).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                       : '—'}
                   </p>
                   {jornada && jornada.comprasSemValor > 0 && (
@@ -196,7 +245,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Novos clientes por origem (30d)
+              Novos clientes por origem ({periodoParam})
             </CardTitle>
             <Tag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>

@@ -17,6 +17,7 @@ import {
   LogOut,
   Tag,
   KanbanSquare,
+  ShoppingBag,
 } from 'lucide-react'
 
 const nav = [
@@ -24,6 +25,7 @@ const nav = [
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/ciclos', label: 'Ciclos de Recompra', icon: RefreshCw },
+  { href: '/pedidos', label: 'Pedidos', icon: ShoppingBag },
   { href: '/mensagens', label: 'Mensagens', icon: MessageSquare },
   { href: '/fluxo', label: 'Fluxo de Conversa', icon: GitBranch },
   { href: '/jornada', label: 'Jornada de Compra', icon: KanbanSquare },

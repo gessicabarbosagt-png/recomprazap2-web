@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { LayoutShell } from '@/components/app/layout-shell'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
@@ -132,10 +133,10 @@ function agruparPorData(mensagens: Mensagem[]): { data: string; itens: Mensagem[
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function MensagensPage() {
+function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([])
   const [etapas, setEtapas] = useState<Etapa[]>([])
-  const [conversaAtiva, setConversaAtiva] = useState<string | null>(null)
+  const [conversaAtiva, setConversaAtiva] = useState<string | null>(telefoneInicial ?? null)
   const [loading, setLoading] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
@@ -846,6 +847,22 @@ function OrigemLeadBadge({ origem }: { origem?: string | null }) {
     <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
       {label}
     </span>
+  )
+}
+
+// ─── Página principal exportada ───────────────────────────────────────────────
+
+function MensagensPageInner() {
+  const searchParams = useSearchParams()
+  const telefone = searchParams.get('telefone')
+  return <MensagensContent telefoneInicial={telefone} />
+}
+
+export default function MensagensPage() {
+  return (
+    <Suspense fallback={<MensagensContent telefoneInicial={null} />}>
+      <MensagensPageInner />
+    </Suspense>
   )
 }
 
