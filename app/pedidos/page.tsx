@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { LayoutShell } from '@/components/app/layout-shell'
 import { api } from '@/lib/api'
@@ -11,6 +11,15 @@ import {
 import { Button } from '@/components/ui/button'
 import { MessageSquare, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  PeriodSelector,
+  PeriodValue,
+  parsePeriodFromUrl,
+  periodValueToUrlParams,
+  periodValueToApiParams,
+} from '@/components/app/period-selector'
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Pedido {
   id: string
@@ -25,11 +34,13 @@ interface Pedido {
 }
 
 const ETAPA_LABELS: Record<string, string> = {
-  comprou: 'Comprou',
-  nao_comprou: 'Não comprou',
-  aguardando: 'Aguardando',
+  comprou:           'Comprou',
+  nao_comprou:       'Não comprou',
+  aguardando:        'Aguardando',
   orcamento_enviado: 'Orçamento enviado',
 }
+
+const ETAPAS_FINAIS = new Set(['comprou', 'nao_comprou'])
 
 function formatValor(v: number | null | undefined) {
   if (v == null) return '—'
@@ -43,24 +54,55 @@ function formatData(iso: string | null) {
   })
 }
 
+// ─── Conteúdo ─────────────────────────────────────────────────────────────────
+
 function PedidosContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const etapa = searchParams.get('etapa') ?? undefined
-  const periodoParam = searchParams.get('periodo') ?? '30d'
-  const dias = parseInt(periodoParam.replace('d', ''), 10) || 30
 
+  const etapa = searchParams.get('etapa') ?? undefined
+  const isFinalStage = etapa ? ETAPAS_FINAIS.has(etapa) : false
+
+  // Lê período da URL; etapas não-finais (pendentes) default para "todos"
+  const initialPeriod = searchParams.get('periodo')
+    ? parsePeriodFromUrl(searchParams.get('periodo'), searchParams.get('de'))
+    : isFinalStage
+    ? { type: 'preset' as const, dias: 30 }
+    : { type: 'todos' as const }
+
+  const [period, setPeriod] = useState<PeriodValue>(initialPeriod)
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Sincroniza estado de período → URL (sem reload)
+  const updateUrl = useCallback((v: PeriodValue) => {
+    const p = periodValueToUrlParams(v)
+    if (etapa) p.set('etapa', etapa)
+    // Garante que etapa vem antes do periodo na URL
+    const ordered = new URLSearchParams()
+    if (etapa) ordered.set('etapa', etapa)
+    periodValueToUrlParams(v).forEach((val, key) => ordered.set(key, val))
+    router.replace(`/pedidos?${ordered.toString()}`, { scroll: false })
+  }, [etapa, router])
+
+  function handlePeriodChange(v: PeriodValue) {
+    setPeriod(v)
+    updateUrl(v)
+  }
+
+  // Carrega pedidos ao mudar etapa ou período
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const params = new URLSearchParams()
-        if (etapa) params.set('statusJornada', etapa)
-        params.set('dias', String(dias))
-        const { data } = await api.get(`/pedidos?${params.toString()}`)
+        const apiParams = new URLSearchParams()
+        if (etapa) apiParams.set('statusJornada', etapa)
+
+        const { dias, desde } = periodValueToApiParams(period)
+        if (dias != null) apiParams.set('dias', String(dias))
+        if (desde)       apiParams.set('desde', desde)
+
+        const { data } = await api.get(`/pedidos?${apiParams.toString()}`)
         setPedidos(Array.isArray(data) ? data : [])
       } catch {
         setPedidos([])
@@ -69,26 +111,41 @@ function PedidosContent() {
       }
     }
     load()
-  }, [etapa, dias])
+  }, [etapa, period])
 
-  const titulo = etapa
-    ? `Vendas — ${ETAPA_LABELS[etapa] ?? etapa} (${periodoParam})`
-    : `Pedidos (${periodoParam})`
+  // ── Labels dinâmicos ────────────────────────────────────────────────────────
+
+  const etapaLabel = etapa ? (ETAPA_LABELS[etapa] ?? etapa) : null
+
+  const periodoLabel = period.type === 'preset'
+    ? `${period.dias}d`
+    : period.type === 'custom'
+    ? `desde ${period.de}`
+    : 'todos'
+
+  const titulo = etapaLabel
+    ? `${etapaLabel} · ${periodoLabel}`
+    : `Pedidos · ${periodoLabel}`
+
+  const colunaData = etapa === 'comprou' ? 'Confirmado em' : 'Data'
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <LayoutShell>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="space-y-5">
+        {/* Header */}
+        <div className="flex items-start gap-3 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push('/dashboard')}
-            className="text-muted-foreground"
+            className="text-muted-foreground mt-0.5 flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             Dashboard
           </Button>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold">{titulo}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {loading ? '…' : `${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''}`}
@@ -96,6 +153,14 @@ function PedidosContent() {
           </div>
         </div>
 
+        {/* Seletor de período */}
+        <PeriodSelector
+          value={period}
+          onChange={handlePeriodChange}
+          showTodos={!isFinalStage}
+        />
+
+        {/* Tabela */}
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -103,7 +168,7 @@ function PedidosContent() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Produto</TableHead>
                 <TableHead>Valor</TableHead>
-                <TableHead>Confirmado em</TableHead>
+                <TableHead>{colunaData}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -119,42 +184,51 @@ function PedidosContent() {
               ) : pedidos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
-                    Nenhum pedido encontrado no período
+                    Nenhum pedido encontrado
+                    {period.type !== 'todos' && ' no período'}
                   </TableCell>
                 </TableRow>
               ) : (
-                pedidos.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <p className="font-medium">{p.clienteNome}</p>
-                      <p className="text-xs text-muted-foreground">{p.clienteTelefone}</p>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {p.produtoNome ?? '—'}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'font-medium',
-                        p.valor != null ? 'text-emerald-700' : 'text-muted-foreground',
-                      )}
-                    >
-                      {formatValor(p.valor)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatData(p.confirmadoEm ?? p.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        title="Abrir conversa no inbox"
-                        onClick={() => router.push(`/mensagens?telefone=${encodeURIComponent(p.clienteTelefone)}`)}
+                pedidos.map((p) => {
+                  const dataDisplay = etapa === 'comprou'
+                    ? formatData(p.confirmadoEm)
+                    : formatData(p.createdAt)
+
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <p className="font-medium">{p.clienteNome}</p>
+                        <p className="text-xs text-muted-foreground">{p.clienteTelefone}</p>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {p.produtoNome ?? '—'}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          'font-medium',
+                          p.valor != null ? 'text-emerald-700' : 'text-muted-foreground',
+                        )}
                       >
-                        <MessageSquare className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                        {formatValor(p.valor)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {dataDisplay}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Abrir conversa no inbox"
+                          onClick={() => router.push(
+                            `/mensagens?telefone=${encodeURIComponent(p.clienteTelefone)}`
+                          )}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -163,6 +237,8 @@ function PedidosContent() {
     </LayoutShell>
   )
 }
+
+// ─── Export com Suspense ──────────────────────────────────────────────────────
 
 export default function PedidosPage() {
   return (

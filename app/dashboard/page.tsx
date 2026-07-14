@@ -7,7 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import { Users, Package, RefreshCw, Bell, ShoppingBag, Tag, TrendingUp, CircleDollarSign } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import {
+  PeriodSelector,
+  PeriodValue,
+  periodValueToDias,
+  periodValueToUrlParams,
+} from '@/components/app/period-selector'
 
 interface Resumo {
   total: number
@@ -36,12 +41,6 @@ interface ResumoJornada {
   receitaConfirmada: number
 }
 
-const PERIODOS = [
-  { label: '7d', dias: 7 },
-  { label: '30d', dias: 30 },
-  { label: '90d', dias: 90 },
-]
-
 const ORIGEM_LABELS: Record<string, string> = {
   meta_ads:    'Meta Ads',
   importado:   'Importado',
@@ -52,9 +51,11 @@ function origemLabel(o: string) {
   return ORIGEM_LABELS[o] ?? o
 }
 
+const DEFAULT_PERIOD: PeriodValue = { type: 'preset', dias: 30 }
+
 export default function DashboardPage() {
   const router = useRouter()
-  const [periodo, setPeriodo] = useState(30)
+  const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD)
   const [lembretesResumo, setLembretesResumo] = useState<Resumo | null>(null)
   const [pedidosResumo, setPedidosResumo] = useState<ResumoPedidos | null>(null)
   const [totalClientes, setTotalClientes] = useState<number | null>(null)
@@ -65,17 +66,18 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const dias = periodValueToDias(period)
     async function load() {
       setLoading(true)
       try {
         const [lembretes, pedidos, clientes, produtos, ciclos, origensData, jornadaData] = await Promise.all([
-          api.get(`/lembretes/resumo?dias=${periodo}`),
-          api.get(`/pedidos/resumo?dias=${periodo}`),
+          api.get(`/lembretes/resumo?dias=${dias}`),
+          api.get(`/pedidos/resumo?dias=${dias}`),
           api.get('/clientes'),
           api.get('/produtos'),
           api.get('/ciclos'),
-          api.get(`/clientes/origens?dias=${periodo}`),
-          api.get(`/pedidos/resumo-jornada?dias=${periodo}`),
+          api.get(`/clientes/origens?dias=${dias}`),
+          api.get(`/pedidos/resumo-jornada?dias=${dias}`),
         ])
         setLembretesResumo(lembretes.data)
         setPedidosResumo(pedidos.data)
@@ -91,37 +93,33 @@ export default function DashboardPage() {
       }
     }
     load()
-  }, [periodo])
+  }, [period])
 
-  const periodoParam = `${periodo}d`
+  // Monta URL do card preservando os params de período
+  function cardLink(extra: Record<string, string> = {}) {
+    const p = periodValueToUrlParams(period)
+    Object.entries(extra).forEach(([k, v]) => p.set(k, v))
+    return `/pedidos?${p.toString()}`
+  }
+
+  const periodLabel = period.type === 'preset'
+    ? `${period.dias}d`
+    : period.type === 'custom'
+    ? `desde ${period.de}`
+    : 'todos'
 
   const cards = [
+    { title: 'Clientes', value: totalClientes, icon: Users, desc: 'cadastrados' },
+    { title: 'Produtos', value: totalProdutos, icon: Package, desc: 'no catálogo' },
+    { title: 'Ciclos ativos', value: totalCiclos, icon: RefreshCw, desc: 'em andamento' },
     {
-      title: 'Clientes',
-      value: totalClientes,
-      icon: Users,
-      desc: 'cadastrados',
-    },
-    {
-      title: 'Produtos',
-      value: totalProdutos,
-      icon: Package,
-      desc: 'no catálogo',
-    },
-    {
-      title: 'Ciclos ativos',
-      value: totalCiclos,
-      icon: RefreshCw,
-      desc: 'em andamento',
-    },
-    {
-      title: `Lembretes (${periodoParam})`,
+      title: `Lembretes (${periodLabel})`,
       value: lembretesResumo?.total,
       icon: Bell,
       desc: `${lembretesResumo?.enviados ?? '—'} enviados`,
     },
     {
-      title: `Pedidos (${periodoParam})`,
+      title: `Pedidos (${periodLabel})`,
       value: pedidosResumo?.total,
       icon: ShoppingBag,
       desc: `${pedidosResumo?.pendentes ?? '—'} pendentes`,
@@ -133,27 +131,12 @@ export default function DashboardPage() {
   return (
     <LayoutShell>
       <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>
-            <p className="text-muted-foreground text-sm mt-1">Visão geral dos últimos {periodo} dias</p>
+            <p className="text-muted-foreground text-sm mt-1">Visão geral · {periodLabel}</p>
           </div>
-          <div className="flex items-center gap-1 rounded-md border p-0.5 bg-muted/40">
-            {PERIODOS.map((p) => (
-              <button
-                key={p.dias}
-                onClick={() => setPeriodo(p.dias)}
-                className={cn(
-                  'px-3 py-1 text-sm rounded transition-colors',
-                  periodo === p.dias
-                    ? 'bg-background shadow-sm font-medium text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <PeriodSelector value={period} onChange={setPeriod} />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -181,11 +164,11 @@ export default function DashboardPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Card
             className="cursor-pointer transition-colors hover:bg-accent/50"
-            onClick={() => router.push(`/pedidos?etapa=comprou&periodo=${periodoParam}`)}
+            onClick={() => router.push(cardLink({ etapa: 'comprou' }))}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Vendas confirmadas ({periodoParam})
+                Vendas confirmadas ({periodLabel})
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -198,7 +181,7 @@ export default function DashboardPage() {
                       className="hover:underline cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation()
-                        router.push(`/pedidos?periodo=${periodoParam}`)
+                        router.push(cardLink())
                       }}
                     >
                       de {jornada?.totalPedidos ?? '—'} pedidos
@@ -214,11 +197,11 @@ export default function DashboardPage() {
 
           <Card
             className="cursor-pointer transition-colors hover:bg-accent/50"
-            onClick={() => router.push(`/pedidos?etapa=comprou&periodo=${periodoParam}`)}
+            onClick={() => router.push(cardLink({ etapa: 'comprou' }))}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Receita confirmada ({periodoParam})
+                Receita confirmada ({periodLabel})
               </CardTitle>
               <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -245,7 +228,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Novos clientes por origem ({periodoParam})
+              Novos clientes por origem ({periodLabel})
             </CardTitle>
             <Tag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
