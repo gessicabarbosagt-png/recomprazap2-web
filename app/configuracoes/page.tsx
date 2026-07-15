@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { QRCodeSVG } from 'qrcode.react'
-import { Loader2, Wifi, WifiOff, RefreshCw, MessageSquare, ArrowRight } from 'lucide-react'
+import { Loader2, Wifi, WifiOff, RefreshCw, MessageSquare, ArrowRight, Eye } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type Status = 'conectado' | 'desconectado' | 'aguardando'
 
@@ -24,6 +25,10 @@ export default function ConfiguracoesPage() {
   const [loadingQr, setLoadingQr] = useState(false)
   const [desconectando, setDesconectando] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // ── Configuração de inbox ──────────────────────────────────────────
+  const [confirmarLeituraWa, setConfirmarLeituraWa] = useState(false)
+  const [salvandoConfig, setSalvandoConfig] = useState(false)
 
   // ── WhatsApp QR Code ──────────────────────────────────────────────
   function pararPolling() {
@@ -71,10 +76,32 @@ export default function ConfiguracoesPage() {
     }
   }
 
+  const buscarConfigLoja = useCallback(async () => {
+    try {
+      const { data } = await api.get('/lojas/minha')
+      setConfirmarLeituraWa(data.confirmarLeituraWa ?? false)
+    } catch { /* silencioso */ }
+  }, [])
+
+  async function toggleConfirmarLeitura() {
+    const novo = !confirmarLeituraWa
+    setConfirmarLeituraWa(novo)
+    setSalvandoConfig(true)
+    try {
+      await api.patch('/lojas/minha/configuracao', { confirmarLeituraWa: novo })
+    } catch {
+      setConfirmarLeituraWa(!novo)
+      toast.error('Erro ao salvar configuração')
+    } finally {
+      setSalvandoConfig(false)
+    }
+  }
+
   useEffect(() => {
     buscarQrCode()
+    buscarConfigLoja()
     return () => pararPolling()
-  }, [buscarQrCode])
+  }, [buscarQrCode, buscarConfigLoja])
 
   return (
     <LayoutShell>
@@ -165,6 +192,50 @@ export default function ConfiguracoesPage() {
                 </Button>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* ── Comportamento do inbox ───────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <Eye className="h-5 w-5 mt-0.5 text-muted-foreground" />
+              <div>
+                <CardTitle>Comportamento do inbox</CardTitle>
+                <CardDescription className="mt-1">
+                  Configure como o painel interage com as conversas do WhatsApp.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Enviar confirmação de leitura ao abrir conversa</p>
+                <p className="text-xs text-muted-foreground max-w-sm">
+                  Quando ativado, seus clientes verão o ✓✓ azul ao abrir a conversa no painel.
+                  Por padrão, as mensagens são marcadas como lidas internamente sem notificar o cliente.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={confirmarLeituraWa}
+                disabled={salvandoConfig}
+                onClick={toggleConfirmarLeitura}
+                className={cn(
+                  'relative flex-shrink-0 h-6 w-11 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+                  confirmarLeituraWa ? 'bg-primary' : 'bg-muted-foreground/30',
+                )}
+              >
+                <span
+                  className={cn(
+                    'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+                    confirmarLeituraWa ? 'translate-x-5' : 'translate-x-0',
+                  )}
+                />
+              </button>
+            </div>
           </CardContent>
         </Card>
 

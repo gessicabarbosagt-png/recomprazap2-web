@@ -179,6 +179,10 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
   const inputRef = useRef<HTMLInputElement>(null)
   const conversaAtivaRef = useRef<string | null>(null)
   const prevCountRef = useRef(0)
+  // clienteIds marcados como lidos otimisticamente nesta sessão
+  const [lidasOverride, setLidasOverride] = useState<Set<string>>(new Set())
+  // previne chamadas duplicadas enquanto o API ainda não respondeu
+  const marcandoRef = useRef<Set<string>>(new Set())
 
   // ── Scroll ──────────────────────────────────────────────────────────────────
 
@@ -196,6 +200,9 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
     if (conversaAtiva !== conversaAtivaRef.current) {
       conversaAtivaRef.current = conversaAtiva
       setTimeout(() => scrollToBottom(true), 0)
+      // Marca como lida ao mudar de conversa (cobre o caso do telefoneInicial)
+      const clienteId = conversas.find((c) => c.telefone === conversaAtiva)?.clienteId
+      marcarLida(clienteId)
     }
     // Busca pedido aberto da conversa selecionada
     setPedidoAberto(null)
@@ -225,18 +232,39 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
     prevCountRef.current = ativas.length
   }, [mensagens, conversaAtiva])
 
+  // ── Marcar conversa como lida ────────────────────────────────────────────────
+
+  const marcarLida = useCallback((clienteId: string | null | undefined) => {
+    if (!clienteId) return
+    if (marcandoRef.current.has(clienteId)) return
+    marcandoRef.current.add(clienteId)
+    // Otimista: zero o contador imediatamente
+    setLidasOverride((prev) => new Set([...prev, clienteId]))
+    api.patch(`/whatsapp/conversas/${clienteId}/lida`).catch(() => {}).finally(() => {
+      marcandoRef.current.delete(clienteId)
+    })
+  }, [])
+
   // ── Polling de mensagens (5s) ────────────────────────────────────────────────
 
   const fetchMensagens = useCallback(async (silencioso = true) => {
     try {
       const { data } = await api.get('/whatsapp/mensagens')
-      setMensagens(Array.isArray(data) ? data : (data.mensagens ?? []))
+      const novas: Mensagem[] = Array.isArray(data) ? data : (data.mensagens ?? [])
+      setMensagens(novas)
+
+      // Se há conversa ativa com mensagens não lidas → marca como lida
+      const ativa = conversaAtivaRef.current
+      if (ativa) {
+        const msg = novas.find((m) => m.telefone === ativa && m.direcao === 'recebida' && !m.lida)
+        if (msg?.clienteId) marcarLida(msg.clienteId)
+      }
     } catch {
       if (!silencioso) toast.error('Erro ao carregar mensagens')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [marcarLida])
 
   // ── Carrega etapas da jornada ────────────────────────────────────────────────
 
@@ -295,14 +323,17 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
         const sorted = [...msgs].sort(
           (a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
         )
+        const clienteId = sorted[0].clienteId ?? null
+        const naoLidasServidor = msgs.filter((m) => m.direcao === 'recebida' && !m.lida).length
         return {
           telefone,
-          clienteId: sorted[0].clienteId ?? null,
+          clienteId,
           clienteNome: sorted[0].clienteNome ?? telefone,
           clienteWhatsappNome: sorted[0].clienteWhatsappNome ?? null,
           ultimaMensagem: sorted[0].conteudo,
           ultimaData: sorted[0].criadoEm,
-          naoLidas: msgs.filter((m) => m.direcao === 'recebida' && !m.lida).length,
+          // Otimista: se já marcamos como lida nesta sessão, mostra 0 imediatamente
+          naoLidas: clienteId && lidasOverride.has(clienteId) ? 0 : naoLidasServidor,
           origemLead: sorted[0].origemLead ?? null,
         }
       })
@@ -488,7 +519,10 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
               conversas.map((c) => (
                 <button
                   key={c.telefone}
-                  onClick={() => setConversaAtiva(c.telefone)}
+                  onClick={() => {
+                    setConversaAtiva(c.telefone)
+                    marcarLida(c.clienteId)
+                  }}
                   className={cn(
                     'w-full text-left px-4 py-3 flex gap-3 items-start border-b transition-colors hover:bg-accent',
                     conversaAtiva === c.telefone && 'bg-accent'
