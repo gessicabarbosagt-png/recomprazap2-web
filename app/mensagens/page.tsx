@@ -63,6 +63,7 @@ interface Mensagem {
   clienteId?: string
   telefone: string
   clienteNome?: string
+  clienteWhatsappNome?: string | null
   conteudo: string
   direcao: 'recebida' | 'enviada'
   tipo?: 'lembrete' | 'manual'
@@ -75,10 +76,27 @@ interface Conversa {
   telefone: string
   clienteId: string | null
   clienteNome: string
+  clienteWhatsappNome?: string | null
   ultimaMensagem: string
   ultimaData: string
   naoLidas: number
   origemLead?: string | null
+}
+
+function isNomeTelefone(nome: string) {
+  return /^\+\d{8,15}$/.test(nome.trim())
+}
+
+function nomeDisplay(nome: string, whatsappNome?: string | null): string {
+  if (isNomeTelefone(nome) && whatsappNome) return whatsappNome
+  return nome
+}
+
+function whatsappTag(nome: string, whatsappNome?: string | null): string | null {
+  if (!whatsappNome) return null
+  if (isNomeTelefone(nome)) return null
+  if (whatsappNome === nome) return null
+  return whatsappNome
 }
 
 type StatusWA = 'conectado' | 'aguardando' | 'desconectado'
@@ -281,6 +299,7 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
           telefone,
           clienteId: sorted[0].clienteId ?? null,
           clienteNome: sorted[0].clienteNome ?? telefone,
+          clienteWhatsappNome: sorted[0].clienteWhatsappNome ?? null,
           ultimaMensagem: sorted[0].conteudo,
           ultimaData: sorted[0].criadoEm,
           naoLidas: msgs.filter((m) => m.direcao === 'recebida' && !m.lida).length,
@@ -476,15 +495,20 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
                   )}
                 >
                   <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-sm font-medium">
-                    {c.clienteNome.charAt(0).toUpperCase()}
+                    {nomeDisplay(c.clienteNome, c.clienteWhatsappNome).charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium truncate">{c.clienteNome}</span>
+                      <span className="text-sm font-medium truncate">{nomeDisplay(c.clienteNome, c.clienteWhatsappNome)}</span>
                       <span className="text-xs text-muted-foreground flex-shrink-0">
                         {formatDataCurta(c.ultimaData)}
                       </span>
                     </div>
+                    {whatsappTag(c.clienteNome, c.clienteWhatsappNome) && (
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        &ldquo;{whatsappTag(c.clienteNome, c.clienteWhatsappNome)}&rdquo; no WhatsApp
+                      </p>
+                    )}
                     <div className="flex items-center justify-between gap-2 mt-0.5">
                       <p className="text-xs text-muted-foreground truncate">{c.ultimaMensagem}</p>
                       {c.naoLidas > 0 && (
@@ -507,11 +531,16 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
               {/* Header da conversa */}
               <div className="px-4 py-3 border-b flex items-center gap-3 flex-shrink-0">
                 <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium flex-shrink-0">
-                  {conversaAtivaInfo.clienteNome.charAt(0).toUpperCase()}
+                  {nomeDisplay(conversaAtivaInfo.clienteNome, conversaAtivaInfo.clienteWhatsappNome).charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold truncate">{conversaAtivaInfo.clienteNome}</p>
+                    <p className="text-sm font-semibold truncate">{nomeDisplay(conversaAtivaInfo.clienteNome, conversaAtivaInfo.clienteWhatsappNome)}</p>
+                    {whatsappTag(conversaAtivaInfo.clienteNome, conversaAtivaInfo.clienteWhatsappNome) && (
+                      <span className="text-xs text-muted-foreground">
+                        · &ldquo;{whatsappTag(conversaAtivaInfo.clienteNome, conversaAtivaInfo.clienteWhatsappNome)}&rdquo; no WhatsApp
+                      </span>
+                    )}
                     <OrigemLeadBadge origem={conversaAtivaInfo.origemLead} />
 
                     {/* Etiqueta de pedido aberto */}

@@ -25,6 +25,23 @@ interface Cliente {
   ativo: boolean
   consentimentoWhatsapp: boolean
   origemLead?: string | null
+  whatsappNome?: string | null
+}
+
+function isNomeTelefone(nome: string) {
+  return /^\+\d{8,15}$/.test(nome.trim())
+}
+
+function nomeDisplay(c: Cliente): string {
+  if (isNomeTelefone(c.nome) && c.whatsappNome) return c.whatsappNome
+  return c.nome
+}
+
+function whatsappTag(c: Cliente): string | null {
+  if (!c.whatsappNome) return null
+  if (isNomeTelefone(c.nome)) return null
+  if (c.whatsappNome === c.nome) return null
+  return c.whatsappNome
 }
 
 const ORIGENS: Record<string, { label: string; className: string }> = {
@@ -165,7 +182,14 @@ export default function ClientesPage() {
               ) : (
                 clientes.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.nome}</TableCell>
+                    <TableCell className="font-medium">
+                      <span>{nomeDisplay(c)}</span>
+                      {whatsappTag(c) && (
+                        <span className="ml-2 text-xs text-muted-foreground font-normal">
+                          · &ldquo;{whatsappTag(c)}&rdquo;
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>{c.telefone}</TableCell>
                     <TableCell className="text-muted-foreground">{c.email || '—'}</TableCell>
                     <TableCell><OrigemBadge origem={c.origemLead} /></TableCell>
