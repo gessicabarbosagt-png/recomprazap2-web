@@ -17,6 +17,7 @@ import {
   parsePeriodFromUrl,
   periodValueToUrlParams,
   periodValueToApiParams,
+  periodShortLabel,
 } from '@/components/app/period-selector'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ function PedidosContent() {
 
   // Lê período da URL; etapas não-finais (pendentes) default para "todos"
   const initialPeriod = searchParams.get('periodo')
-    ? parsePeriodFromUrl(searchParams.get('periodo'), searchParams.get('de'))
+    ? parsePeriodFromUrl(searchParams.get('periodo'), searchParams.get('de'), searchParams.get('ate'))
     : isFinalStage
     ? { type: 'preset' as const, dias: 30 }
     : { type: 'todos' as const }
@@ -117,11 +118,7 @@ function PedidosContent() {
 
   const etapaLabel = etapa ? (ETAPA_LABELS[etapa] ?? etapa) : null
 
-  const periodoLabel = period.type === 'preset'
-    ? `${period.dias}d`
-    : period.type === 'custom'
-    ? `desde ${period.de}`
-    : 'todos'
+  const periodoLabel = periodShortLabel(period)
 
   const titulo = etapaLabel
     ? `${etapaLabel} · ${periodoLabel}`

@@ -12,6 +12,7 @@ import {
   PeriodValue,
   periodValueToDias,
   periodValueToUrlParams,
+  periodShortLabel,
 } from '@/components/app/period-selector'
 
 interface Resumo {
@@ -102,11 +103,7 @@ export default function DashboardPage() {
     return `/pedidos?${p.toString()}`
   }
 
-  const periodLabel = period.type === 'preset'
-    ? `${period.dias}d`
-    : period.type === 'custom'
-    ? `desde ${period.de}`
-    : 'todos'
+  const periodLabel = periodShortLabel(period)
 
   const cards = [
     { title: 'Clientes', value: totalClientes, icon: Users, desc: 'cadastrados' },
