@@ -8,7 +8,8 @@ interface Usuario {
   nome: string
   email: string
   perfil: string
-  loja: { id: string; nome: string }
+  role: string
+  loja: { id: string; nome: string } | null
 }
 
 interface AuthContextType {
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('usuario', JSON.stringify(usuario))
     setToken(token)
     setUsuario(usuario)
-    router.push('/dashboard')
+    router.push(usuario.role === 'admin' ? '/admin' : '/dashboard')
   }
 
   function logout() {

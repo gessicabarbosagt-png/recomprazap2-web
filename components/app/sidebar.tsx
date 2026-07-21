@@ -18,6 +18,7 @@ import {
   Tag,
   KanbanSquare,
   ShoppingBag,
+  ShieldCheck,
 } from 'lucide-react'
 
 const nav = [
@@ -44,28 +45,54 @@ export function Sidebar() {
     <aside className="flex flex-col w-60 min-h-screen border-r bg-card px-3 py-4">
       <div className="px-2 mb-6">
         <span className="text-xl font-bold">♻️ RecompraZap</span>
-        {usuario && (
+        {usuario?.loja && (
           <p className="text-xs text-muted-foreground mt-1 truncate">{usuario.loja.nome}</p>
+        )}
+        {usuario?.role === 'admin' && (
+          <p className="text-xs text-primary mt-1 font-medium">Administrador</p>
         )}
       </div>
 
-      <nav className="flex-1 space-y-1">
-        {nav.map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href}>
-            <span
-              className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
-                pathname === href
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground'
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </span>
-          </Link>
-        ))}
-      </nav>
+      {usuario?.role === 'admin' ? (
+        <nav className="flex-1 space-y-1">
+          {[
+            { href: '/admin', label: 'Painel Admin', icon: ShieldCheck },
+            { href: '/admin/lojas', label: 'Lojas', icon: ShoppingBag },
+          ].map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href}>
+              <span
+                className={cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
+                  pathname === href || (href !== '/admin' && pathname.startsWith(href))
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </span>
+            </Link>
+          ))}
+        </nav>
+      ) : (
+        <nav className="flex-1 space-y-1">
+          {nav.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href}>
+              <span
+                className={cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
+                  pathname === href
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </span>
+            </Link>
+          ))}
+        </nav>
+      )}
 
       <nav className="space-y-1 mb-1">
         {navBottom.map(({ href, label, icon: Icon }) => (
