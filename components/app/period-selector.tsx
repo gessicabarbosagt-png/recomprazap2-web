@@ -66,8 +66,8 @@ function triggerLabel(v: PeriodValue): string {
 export function periodShortLabel(v: PeriodValue): string {
   if (v.type === 'preset') return `${v.dias}d`
   if (v.type === 'custom') {
-    if (v.ate) return `${v.de.slice(5)} – ${v.ate.slice(5)}`
-    return `desde ${v.de}`
+    if (v.ate) return `${fmtDate(parseISO(v.de))} – ${fmtDate(parseISO(v.ate))}`
+    return `desde ${fmtDate(parseISO(v.de))}`
   }
   return 'todos'
 }
