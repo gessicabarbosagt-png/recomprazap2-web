@@ -480,73 +480,7 @@ export default function FluxoPage() {
         </div>
       </form>
 
-      {/* ── Confirmação de compra ──────────────────────────────────────────────── */}
-      <div className="max-w-3xl mt-6 mb-8">
-        <Card>
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <Zap className="h-5 w-5 mt-0.5 text-muted-foreground" />
-              <div>
-                <CardTitle>Confirmação de compra</CardTitle>
-                <CardDescription className="mt-1">
-                  Quando você enviar uma destas frases para um cliente no WhatsApp, a compra será
-                  registrada automaticamente.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {gatilhos.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">Nenhum gatilho cadastrado.</p>
-            ) : (
-              <ul className="space-y-2">
-                {gatilhos.map((g) => (
-                  <li key={g.id} className="flex items-center gap-2 rounded-md border px-3 py-2">
-                    <span className="flex-1 text-sm">{g.frase}</span>
-                    <button
-                      type="button"
-                      onClick={() => toggleGatilho(g.id, !g.ativo)}
-                      className={`text-xs px-2 py-0.5 rounded-full border font-medium transition-colors ${
-                        g.ativo
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                          : 'bg-muted border-border text-muted-foreground'
-                      }`}
-                    >
-                      {g.ativo ? 'Ativo' : 'Inativo'}
-                    </button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground hover:text-destructive h-7 w-7 p-0"
-                      onClick={() => removerGatilho(g.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex gap-2 pt-1">
-              <Input
-                placeholder="Ex: Fechou negócio, Compra confirmada…"
-                value={novaFrase}
-                onChange={(e) => setNovaFrase(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && adicionarGatilho()}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={adicionarGatilho}
-                disabled={!novaFrase.trim() || salvandoGatilho}
-              >
-                {salvandoGatilho ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Card "Confirmação de compra" oculto — feature em espera, código mantido */}
 
       {/* Dialog de teste */}
       <Dialog open={testarOpen} onOpenChange={setTestarOpen}>

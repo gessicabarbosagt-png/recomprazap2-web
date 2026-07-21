@@ -275,9 +275,9 @@ export function periodValueToUrlParams(v: PeriodValue): URLSearchParams {
 }
 
 /** Converte para parâmetros da API. */
-export function periodValueToApiParams(v: PeriodValue): { dias?: number; desde?: string } {
+export function periodValueToApiParams(v: PeriodValue): { dias?: number; desde?: string; ate?: string } {
   if (v.type === 'preset') return { dias: v.dias }
-  if (v.type === 'custom') return { desde: v.de }
+  if (v.type === 'custom') return { desde: v.de, ate: v.ate }
   return {}
 }
 

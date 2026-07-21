@@ -99,9 +99,10 @@ function PedidosContent() {
         const apiParams = new URLSearchParams()
         if (etapa) apiParams.set('statusJornada', etapa)
 
-        const { dias, desde } = periodValueToApiParams(period)
+        const { dias, desde, ate } = periodValueToApiParams(period)
         if (dias != null) apiParams.set('dias', String(dias))
-        if (desde)       apiParams.set('desde', desde)
+        if (desde)        apiParams.set('desde', desde)
+        if (ate)          apiParams.set('ate', ate)
 
         const { data } = await api.get(`/pedidos?${apiParams.toString()}`)
         setPedidos(Array.isArray(data) ? data : [])
