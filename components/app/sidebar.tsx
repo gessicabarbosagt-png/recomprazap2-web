@@ -54,26 +54,52 @@ export function Sidebar() {
       </div>
 
       {usuario?.role === 'admin' ? (
-        <nav className="flex-1 space-y-1">
-          {[
-            { href: '/admin', label: 'Painel Admin', icon: ShieldCheck },
-            { href: '/admin/lojas', label: 'Lojas', icon: ShoppingBag },
-          ].map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href}>
-              <span
-                className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
-                  pathname === href || (href !== '/admin' && pathname.startsWith(href))
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </span>
-            </Link>
-          ))}
-        </nav>
+        <div className="flex-1 flex flex-col gap-0">
+          <nav className="space-y-1">
+            {[
+              { href: '/admin', label: 'Painel Admin', icon: ShieldCheck },
+              { href: '/admin/lojas', label: 'Lojas', icon: ShoppingBag },
+            ].map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href}>
+                <span
+                  className={cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
+                    pathname === href || (href !== '/admin' && pathname.startsWith(href))
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </span>
+              </Link>
+            ))}
+          </nav>
+
+          {usuario.loja && (
+            <>
+              <Separator className="my-3" />
+              <p className="px-3 text-xs text-muted-foreground font-medium mb-1 truncate">{usuario.loja.nome}</p>
+              <nav className="space-y-1">
+                {nav.map(({ href, label, icon: Icon }) => (
+                  <Link key={href} href={href}>
+                    <span
+                      className={cn(
+                        'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
+                        pathname === href
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+            </>
+          )}
+        </div>
       ) : (
         <nav className="flex-1 space-y-1">
           {nav.map(({ href, label, icon: Icon }) => (
