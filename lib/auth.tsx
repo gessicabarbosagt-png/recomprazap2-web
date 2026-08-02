@@ -34,11 +34,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (t && u) {
       try {
         const storedUser: Usuario = JSON.parse(u)
-        // JWT é a fonte autoritativa para role — cobre localStorage stale
-        // de logins feitos antes de o campo role existir na resposta da API.
         const jwtPayload = JSON.parse(atob(t.split('.')[1]))
-        if (jwtPayload.role) storedUser.role = jwtPayload.role
-        // Persiste a correção para não depender do JWT a cada reload
+        // Deriva role em ordem de precedência:
+        // 1) JWT novo → campo role explícito
+        // 2) JWT antigo → perfil:'dono' era o equivalente de admin
+        // 3) localStorage stale → mesma lógica via perfil gravado
+        // Cobre logins feitos antes de o campo role existir na API.
+        storedUser.role =
+          jwtPayload.role ??
+          (jwtPayload.perfil === 'dono' ? 'admin' : null) ??
+          (storedUser.perfil === 'dono' ? 'admin' : null) ??
+          'lojista'
         localStorage.setItem('usuario', JSON.stringify(storedUser))
         setToken(t)
         setUsuario(storedUser)
