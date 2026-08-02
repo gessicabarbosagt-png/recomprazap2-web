@@ -320,21 +320,26 @@ export default function DashboardPage() {
   return (
     <LayoutShell>
       {/* Componente de impressão — fora da tela visível */}
+      {/* O ref deve ficar no div INTERNO sem o left:-9999px, pois react-to-print
+          usa cloneNode(true) e copia os estilos inline — se o próprio div do ref
+          tiver position:fixed/left:-9999px, o conteúdo fica fora da área de
+          impressão e o PDF sai em branco. */}
       <div
-        ref={printRef}
         aria-hidden="true"
-        style={{ position: 'fixed', left: '-9999px', top: 0, width: 780 }}
+        style={{ position: 'fixed', left: '-9999px', top: 0, overflow: 'hidden', width: 0, height: 0 }}
       >
-        <DashboardPrint
-          nomeLoja={nomeLoja}
-          periodLabel={periodLabel}
-          geradoEm={geradoEm}
-          lembretesResumo={lembretesResumo}
-          pedidosResumo={pedidosResumo}
-          jornada={jornada}
-          origens={origens}
-          vendas={vendasPDF}
-        />
+        <div ref={printRef} style={{ width: 780 }}>
+          <DashboardPrint
+            nomeLoja={nomeLoja}
+            periodLabel={periodLabel}
+            geradoEm={geradoEm}
+            lembretesResumo={lembretesResumo}
+            pedidosResumo={pedidosResumo}
+            jornada={jornada}
+            origens={origens}
+            vendas={vendasPDF}
+          />
+        </div>
       </div>
 
       <div className="space-y-6">
