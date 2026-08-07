@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { Loader2, Plus, Trash2, Send, Save, Info, Zap } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 // ----------------------------------------------------------------
 // Schema de validação
@@ -480,7 +481,79 @@ export default function FluxoPage() {
         </div>
       </form>
 
-      {/* Card "Confirmação de compra" oculto — feature em espera, código mantido */}
+      {/* Card: Confirmação de compra por palavra-chave */}
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <div className="flex items-start gap-3">
+            <Zap className="h-5 w-5 mt-0.5 text-muted-foreground" />
+            <div>
+              <CardTitle>Confirmação de compra</CardTitle>
+              <CardDescription className="mt-1">
+                Quando o cliente envia uma mensagem com uma dessas frases, o pedido é marcado como{' '}
+                <strong>comprou</strong> automaticamente. Se a mensagem contiver um valor (ex: R$ 89,90),
+                ele é salvo no pedido.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            {gatilhos.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhuma frase cadastrada ainda.</p>
+            )}
+            {gatilhos.map((g) => (
+              <div key={g.id} className="flex items-center gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={g.ativo}
+                  onClick={() => toggleGatilho(g.id, !g.ativo)}
+                  className={cn(
+                    'relative flex-shrink-0 h-5 w-9 rounded-full transition-colors focus:outline-none',
+                    g.ativo ? 'bg-primary' : 'bg-muted-foreground/30',
+                  )}
+                >
+                  <span className={cn(
+                    'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                    g.ativo ? 'translate-x-4' : 'translate-x-0',
+                  )} />
+                </button>
+                <span className={cn('flex-1 text-sm', !g.ativo && 'text-muted-foreground line-through')}>
+                  {g.frase}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removerGatilho(g.id)}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <Separator />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Ex: Obrigado pela compra"
+              value={novaFrase}
+              onChange={(e) => setNovaFrase(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarGatilho() } }}
+              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button
+              type="button"
+              onClick={adicionarGatilho}
+              disabled={salvandoGatilho || !novaFrase.trim()}
+            >
+              {salvandoGatilho
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <><Plus className="h-4 w-4 mr-1" /> Adicionar</>
+              }
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Dialog de teste */}
       <Dialog open={testarOpen} onOpenChange={setTestarOpen}>

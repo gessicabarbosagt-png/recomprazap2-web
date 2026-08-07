@@ -19,13 +19,16 @@ import {
   KanbanSquare,
   ShoppingBag,
   ShieldCheck,
+  BellOff,
 } from 'lucide-react'
+import { ThemeToggle } from '@/components/app/theme-toggle'
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/ciclos', label: 'Ciclos de Recompra', icon: RefreshCw },
+  { href: '/represados', label: 'Lembretes Represados', icon: BellOff },
   { href: '/pedidos', label: 'Pedidos', icon: ShoppingBag },
   { href: '/mensagens', label: 'Mensagens', icon: MessageSquare },
   { href: '/fluxo', label: 'Fluxo de Conversa', icon: GitBranch },
@@ -144,10 +147,11 @@ export function Sidebar() {
         <div className="px-2 space-y-1">
           <p className="text-xs font-medium truncate">{usuario.nome}</p>
           <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
+          <ThemeToggle />
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-start text-muted-foreground mt-1 px-1"
+            className="w-full justify-start text-muted-foreground px-1"
             onClick={logout}
           >
             <LogOut className="h-4 w-4 mr-2" />
