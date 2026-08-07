@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { LayoutShell } from '@/components/app/layout-shell'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
@@ -11,7 +10,7 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { QRCodeSVG } from 'qrcode.react'
-import { Loader2, Wifi, WifiOff, RefreshCw, MessageSquare, ArrowRight, Eye } from 'lucide-react'
+import { Loader2, Wifi, WifiOff, RefreshCw, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Status = 'conectado' | 'desconectado' | 'aguardando'
@@ -19,7 +18,6 @@ type Status = 'conectado' | 'desconectado' | 'aguardando'
 const QR_REFRESH_MS = 14_000
 
 export default function ConfiguracoesPage() {
-  const router = useRouter()
   const [status, setStatus] = useState<Status>('desconectado')
   const [qrValue, setQrValue] = useState<string | null>(null)
   const [loadingQr, setLoadingQr] = useState(false)
@@ -239,26 +237,7 @@ export default function ConfiguracoesPage() {
           </CardContent>
         </Card>
 
-        {/* ── Mensagens e Fluxo de conversa ────────────────────── */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <MessageSquare className="h-5 w-5 mt-0.5 text-muted-foreground" />
-              <div>
-                <CardTitle>Modelo de mensagem</CardTitle>
-                <CardDescription className="mt-1">
-                  As mensagens dos lembretes agora são editadas junto com o fluxo de conversa.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/fluxo')}>
-              Editar fluxo de conversa
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </CardContent>
-        </Card>
+
       </div>
     </LayoutShell>
   )
