@@ -62,7 +62,10 @@ export default function AdminLojasPage() {
 
   function carregarLojas() {
     setLoading(true)
-    api.get('/admin/lojas').then(r => setLojas(r.data)).finally(() => setLoading(false))
+    api.get('/admin/lojas')
+      .then(r => setLojas(r.data))
+      .catch(() => toast.error('Erro ao carregar lojas — tente fazer logout e login novamente'))
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => { carregarLojas() }, [])
