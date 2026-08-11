@@ -18,7 +18,7 @@ interface Represado {
   clienteTelefone: string
   produtoNome: string
   produtoUnidade: string | null
-  quantidade: number | null
+  quantidade: string | null
 }
 
 function formatarData(d: string) {
@@ -135,7 +135,7 @@ export default function RepresadosPage() {
                     <p className="text-sm font-medium truncate">{l.clienteNome}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {l.produtoNome}
-                      {l.quantidade ? ` — ${l.quantidade}${l.produtoUnidade ? ` ${l.produtoUnidade}` : ''}` : ''}
+                      {l.quantidade ? ` — ${l.quantidade}` : ''}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Agendado para {formatarData(l.agendadoPara)}

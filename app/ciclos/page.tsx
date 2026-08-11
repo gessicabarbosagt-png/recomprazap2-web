@@ -27,7 +27,7 @@ interface Ciclo {
   id: string
   ativo: boolean
   intervaloDias: number
-  quantidade?: number
+  quantidade?: string
   proximaNotificacao?: string
   ultimaCompra?: string
   statusUltimoEnvio?: 'sucesso' | 'erro' | null
@@ -112,7 +112,7 @@ export default function CiclosPage() {
     try {
       const payload: any = {
         intervaloDias: parseInt(form.intervaloDias),
-        quantidade: form.quantidade ? parseFloat(form.quantidade) : undefined,
+        quantidade: form.quantidade.trim() || undefined,
       }
       if (!editing) {
         payload.clienteId = form.clienteId
@@ -338,27 +338,40 @@ export default function CiclosPage() {
                 </div>
               </>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Intervalo (dias) *</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={form.intervaloDias}
-                  onChange={(e) => setForm({ ...form, intervaloDias: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Quantidade</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.quantidade}
-                  onChange={(e) => setForm({ ...form, quantidade: e.target.value })}
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Intervalo (dias) *</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="30"
+                value={form.intervaloDias}
+                onChange={(e) => setForm({ ...form, intervaloDias: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">A cada quantos dias o cliente costuma comprar de novo</p>
             </div>
+            <div className="space-y-1.5">
+              <Label>Quantidade (opcional)</Label>
+              <Input
+                type="text"
+                placeholder="2 kg"
+                value={form.quantidade}
+                onChange={(e) => setForm({ ...form, quantidade: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Como aparece na mensagem do lembrete. Ex: 2 kg, 1 pacote, 500g, 3 unidades
+              </p>
+            </div>
+            {(() => {
+              const prodNome = editing?.produtoNome ?? produtos.find((p) => p.id === form.produtoId)?.nome
+              if (!prodNome) return null
+              const qtdTexto = form.quantidade.trim() ? ` (${form.quantidade.trim()})` : ''
+              return (
+                <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                  <p className="text-xs text-muted-foreground mb-1">Prévia na mensagem de lembrete:</p>
+                  <p>Já está na hora de repor <strong>{prodNome}</strong>{qtdTexto}.</p>
+                </div>
+              )
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
