@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
-import { Plus, WifiOff, WifiIcon, ChevronRight } from 'lucide-react'
+import { Plus, WifiOff, WifiIcon, ChevronRight, Bell } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -52,6 +52,8 @@ function dist(d: string | null) {
   return formatDistanceToNow(new Date(d), { locale: ptBR, addSuffix: true })
 }
 
+const MSG_PADRAO = 'Seu WhatsApp está desconectado. Por favor, acesse o painel e reconecte para que seus lembretes continuem sendo enviados.'
+
 export default function AdminLojasPage() {
   const [lojas, setLojas] = useState<Loja[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,6 +61,11 @@ export default function AdminLojasPage() {
   const [dialogAberto, setDialogAberto] = useState(false)
   const [credenciais, setCredenciais] = useState<Credenciais | null>(null)
   const [form, setForm] = useState({ lojaNome: '', lojaEmail: '', usuarioNome: '', usuarioEmail: '' })
+
+  // Notificações
+  const [notifDialog, setNotifDialog] = useState<{ lojaId: string | null; titulo: string }>({ lojaId: null, titulo: '' })
+  const [notifMsg, setNotifMsg] = useState(MSG_PADRAO)
+  const [enviandoNotif, setEnviandoNotif] = useState(false)
 
   function carregarLojas() {
     setLoading(true)
@@ -69,6 +76,35 @@ export default function AdminLojasPage() {
   }
 
   useEffect(() => { carregarLojas() }, [])
+
+  function abrirNotifLoja(loja: Loja) {
+    setNotifMsg(MSG_PADRAO)
+    setNotifDialog({ lojaId: loja.id, titulo: `Notificar: ${loja.nome}` })
+  }
+
+  function abrirNotifDesconectadas() {
+    setNotifMsg(MSG_PADRAO)
+    setNotifDialog({ lojaId: null, titulo: 'Notificar todas as lojas desconectadas' })
+  }
+
+  async function enviarNotificacao() {
+    if (!notifMsg.trim()) return
+    setEnviandoNotif(true)
+    try {
+      if (notifDialog.lojaId) {
+        await api.post(`/admin/notificacoes/loja/${notifDialog.lojaId}`, { mensagem: notifMsg })
+        toast.success('Notificação enviada para a loja')
+      } else {
+        const { data } = await api.post('/admin/notificacoes/desconectadas', { mensagem: notifMsg })
+        toast.success(`Notificação enviada para ${data.criadas} loja(s)`)
+      }
+      setNotifDialog({ lojaId: null, titulo: '' })
+    } catch {
+      toast.error('Erro ao enviar notificação')
+    } finally {
+      setEnviandoNotif(false)
+    }
+  }
 
   async function criarLoja(e: React.FormEvent) {
     e.preventDefault()
@@ -95,10 +131,18 @@ export default function AdminLojasPage() {
               <h1 className="text-2xl font-semibold">Lojas</h1>
               <p className="text-sm text-muted-foreground mt-1">{lojas.length} loja{lojas.length !== 1 ? 's' : ''} cadastrada{lojas.length !== 1 ? 's' : ''}</p>
             </div>
-            <Button onClick={() => setDialogAberto(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova loja
-            </Button>
+            <div className="flex items-center gap-2">
+              {lojas.some(l => l.waStatus !== 'conectado' && l.ativa) && (
+                <Button variant="outline" onClick={abrirNotifDesconectadas}>
+                  <Bell className="h-4 w-4 mr-2" />
+                  Notificar desconectadas
+                </Button>
+              )}
+              <Button onClick={() => setDialogAberto(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova loja
+              </Button>
+            </div>
           </div>
 
           {/* Credenciais da loja criada */}
@@ -123,46 +167,86 @@ export default function AdminLojasPage() {
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
             ) : lojas.map(loja => (
-              <Link key={loja.id} href={`/admin/lojas/${loja.id}`}>
-                <div className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent transition-colors cursor-pointer">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate">{loja.nome}</p>
-                        {!loja.ativa && <Badge variant="outline" className="text-xs">Inativa</Badge>}
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{loja.email}</p>
+              <div key={loja.id} className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+                <Link href={`/admin/lojas/${loja.id}`} className="flex items-center gap-4 min-w-0 flex-1">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm truncate">{loja.nome}</p>
+                      {!loja.ativa && <Badge variant="outline" className="text-xs">Inativa</Badge>}
                     </div>
+                    <p className="text-xs text-muted-foreground truncate">{loja.email}</p>
+                  </div>
+                </Link>
+
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="text-right hidden md:block">
+                    <p className="text-xs text-muted-foreground">{loja.lembretes7d} lembretes / 7d</p>
+                    <p className="text-xs text-muted-foreground">última ativ. {dist(loja.ultimaAtividade)}</p>
                   </div>
 
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <div className="text-right hidden md:block">
-                      <p className="text-xs text-muted-foreground">{loja.lembretes7d} lembretes / 7d</p>
-                      <p className="text-xs text-muted-foreground">última ativ. {dist(loja.ultimaAtividade)}</p>
-                    </div>
+                  <div className="flex items-center gap-1 text-xs">
+                    {loja.waStatus === 'conectado' ? (
+                      <WifiIcon className="h-3.5 w-3.5 text-green-600" />
+                    ) : (
+                      <WifiOff className="h-3.5 w-3.5 text-destructive" />
+                    )}
+                    <span className={loja.waStatus === 'conectado' ? 'text-green-700' : 'text-destructive'}>
+                      {loja.waStatus === 'conectado' ? 'online' : 'offline'}
+                    </span>
+                  </div>
 
-                    <div className="flex items-center gap-1 text-xs">
-                      {loja.waStatus === 'conectado' ? (
-                        <WifiIcon className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <WifiOff className="h-3.5 w-3.5 text-destructive" />
-                      )}
-                      <span className={loja.waStatus === 'conectado' ? 'text-green-700' : 'text-destructive'}>
-                        {loja.waStatus === 'conectado' ? 'online' : 'offline'}
-                      </span>
-                    </div>
+                  {loja.waStatus !== 'conectado' && loja.ativa && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs px-2"
+                      onClick={e => { e.preventDefault(); abrirNotifLoja(loja) }}
+                    >
+                      <Bell className="h-3 w-3 mr-1" />
+                      Notificar
+                    </Button>
+                  )}
 
-                    <Badge variant={STATUS_VARIANT[loja.statusAssinatura] ?? 'outline'}>
-                      {STATUS_LABEL[loja.statusAssinatura] ?? loja.statusAssinatura}
-                    </Badge>
+                  <Badge variant={STATUS_VARIANT[loja.statusAssinatura] ?? 'outline'}>
+                    {STATUS_LABEL[loja.statusAssinatura] ?? loja.statusAssinatura}
+                  </Badge>
 
+                  <Link href={`/admin/lojas/${loja.id}`}>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
+                  </Link>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>
+
+        {/* Dialog: notificação */}
+        <Dialog open={!!notifDialog.titulo} onOpenChange={open => { if (!open) setNotifDialog({ lojaId: null, titulo: '' }) }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{notifDialog.titulo}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 mt-2">
+              <div className="space-y-1">
+                <Label>Mensagem</Label>
+                <textarea
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none min-h-[100px] focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={notifMsg}
+                  onChange={e => setNotifMsg(e.target.value)}
+                  placeholder="Digite a mensagem para o lojista..."
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setNotifDialog({ lojaId: null, titulo: '' })}>
+                  Cancelar
+                </Button>
+                <Button onClick={enviarNotificacao} disabled={enviandoNotif || !notifMsg.trim()}>
+                  {enviandoNotif ? 'Enviando...' : 'Enviar notificação'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Dialog: criar loja */}
         <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>

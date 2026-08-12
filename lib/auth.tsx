@@ -67,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function logout() {
     localStorage.removeItem('token')
     localStorage.removeItem('usuario')
+    sessionStorage.removeItem('wa_banner_dismissed')
     setToken(null)
     setUsuario(null)
     router.push('/login')

@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   ShieldCheck,
   BellOff,
+  HelpCircle,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 
@@ -38,6 +39,7 @@ const nav = [
 
 const navBottom = [
   { href: '/configuracoes', label: 'Configurações', icon: Settings },
+  { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]
 
 export function Sidebar() {
