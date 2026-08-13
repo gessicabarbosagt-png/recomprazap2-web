@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   BellOff,
   HelpCircle,
+  CreditCard,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 
@@ -39,6 +40,7 @@ const nav = [
 
 const navBottom = [
   { href: '/configuracoes', label: 'Configurações', icon: Settings },
+  { href: '/plano', label: 'Meu Plano', icon: CreditCard },
   { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]
 

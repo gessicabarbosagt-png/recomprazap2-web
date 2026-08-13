@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { api } from '@/lib/api'
-import { ArrowLeft, WifiOff, WifiIcon, KeyRound, Power } from 'lucide-react'
+import { ArrowLeft, WifiOff, WifiIcon, KeyRound, Power, CreditCard, QrCode, CheckCircle, XCircle, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -48,6 +48,23 @@ interface SenhaReset {
   senhaTemporaria: string
 }
 
+interface PagamentoAdmin {
+  id: string
+  tipo: 'card' | 'pix'
+  valor: string
+  status: string
+  descricao: string | null
+  mpPaymentId: string | null
+  criadoEm: string
+}
+
+const PAGTO_STATUS_ADMIN: Record<string, { label: string; icon: React.ReactNode }> = {
+  aprovado: { label: 'Aprovado',  icon: <CheckCircle className="h-3.5 w-3.5 text-emerald-600" /> },
+  pendente: { label: 'Pendente',  icon: <Clock        className="h-3.5 w-3.5 text-amber-500" /> },
+  recusado: { label: 'Recusado',  icon: <XCircle      className="h-3.5 w-3.5 text-destructive" /> },
+  cancelado:{ label: 'Cancelado', icon: <XCircle      className="h-3.5 w-3.5 text-muted-foreground" /> },
+}
+
 function dist(d: string | null) {
   if (!d) return 'nunca'
   return formatDistanceToNow(new Date(d), { locale: ptBR, addSuffix: true })
@@ -59,6 +76,7 @@ export default function LojaDetalhePage() {
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [resetSenha, setResetSenha] = useState<SenhaReset | null>(null)
+  const [pagamentos, setPagamentos] = useState<PagamentoAdmin[]>([])
 
   const [form, setForm] = useState({
     plano: '',
@@ -68,14 +86,18 @@ export default function LojaDetalhePage() {
   })
 
   function carregarLoja() {
-    api.get(`/admin/lojas/${id}`).then(r => {
-      setLoja(r.data)
+    Promise.all([
+      api.get(`/admin/lojas/${id}`),
+      api.get(`/admin/lojas/${id}/pagamentos`).catch(() => ({ data: [] })),
+    ]).then(([lojaRes, pagtosRes]) => {
+      setLoja(lojaRes.data)
+      setPagamentos(pagtosRes.data)
       setForm({
-        plano: r.data.plano ?? '',
-        statusAssinatura: r.data.statusAssinatura ?? 'ativa',
-        valorMensalidade: r.data.valorMensalidade != null ? String(r.data.valorMensalidade) : '',
-        proximoVencimento: r.data.proximoVencimento
-          ? format(new Date(r.data.proximoVencimento), 'yyyy-MM-dd')
+        plano: lojaRes.data.plano ?? '',
+        statusAssinatura: lojaRes.data.statusAssinatura ?? 'ativa',
+        valorMensalidade: lojaRes.data.valorMensalidade != null ? String(lojaRes.data.valorMensalidade) : '',
+        proximoVencimento: lojaRes.data.proximoVencimento
+          ? format(new Date(lojaRes.data.proximoVencimento), 'yyyy-MM-dd')
           : '',
       })
     }).finally(() => setLoading(false))
@@ -274,6 +296,40 @@ export default function LojaDetalhePage() {
                   </Button>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          {/* Histórico de pagamentos */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Histórico de pagamentos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pagamentos.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum pagamento registrado.</p>
+              ) : (
+                <div className="divide-y text-sm">
+                  {pagamentos.map(p => (
+                    <div key={p.id} className="flex items-center justify-between py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        {p.tipo === 'card'
+                          ? <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                          : <QrCode     className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <div>
+                          <p className="font-medium">R$ {Number(p.valor).toFixed(2).replace('.', ',')}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {p.descricao ?? p.tipo} · {format(new Date(p.criadoEm), 'dd/MM/yyyy', { locale: ptBR })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs">
+                        {PAGTO_STATUS_ADMIN[p.status]?.icon}
+                        <span className="text-muted-foreground">{PAGTO_STATUS_ADMIN[p.status]?.label ?? p.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
