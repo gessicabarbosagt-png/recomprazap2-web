@@ -45,8 +45,8 @@ function whatsappTag(c: Cliente): string | null {
 }
 
 const ORIGENS: Record<string, { label: string; className: string }> = {
-  meta_ads:  { label: 'Meta Ads',   className: 'bg-blue-100 text-blue-800 border-blue-200' },
-  importado: { label: 'Importado',  className: 'bg-gray-100 text-gray-700 border-gray-200' },
+  meta_ads:  { label: 'Meta Ads',   className: 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+  importado: { label: 'Importado',  className: 'bg-muted text-muted-foreground border-border' },
 }
 
 function OrigemBadge({ origem }: { origem?: string | null }) {

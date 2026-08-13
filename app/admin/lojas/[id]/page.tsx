@@ -152,11 +152,11 @@ export default function LojaDetalhePage() {
 
           {/* Senha resetada */}
           {resetSenha && (
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="pt-4 space-y-1 text-sm font-mono text-green-900">
+            <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40">
+              <CardContent className="pt-4 space-y-1 text-sm font-mono text-green-900 dark:text-green-300">
                 <p>Usuário: <strong>{resetSenha.usuarioNome}</strong></p>
                 <p>Nova senha temporária: <strong>{resetSenha.senhaTemporaria}</strong></p>
-                <Button variant="ghost" size="sm" className="mt-1 text-green-700" onClick={() => setResetSenha(null)}>Fechar</Button>
+                <Button variant="ghost" size="sm" className="mt-1 text-green-700 dark:text-green-400" onClick={() => setResetSenha(null)}>Fechar</Button>
               </CardContent>
             </Card>
           )}

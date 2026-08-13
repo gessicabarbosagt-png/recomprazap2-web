@@ -147,15 +147,15 @@ export default function AdminLojasPage() {
 
           {/* Credenciais da loja criada */}
           {credenciais && (
-            <Card className="border-green-200 bg-green-50">
+            <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-green-800">Loja criada! Copie as credenciais antes de sair.</CardTitle>
+                <CardTitle className="text-sm text-green-800 dark:text-green-400">Loja criada! Copie as credenciais antes de sair.</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm font-mono text-green-900">
+              <CardContent className="space-y-1 text-sm font-mono text-green-900 dark:text-green-300">
                 <p>Loja: <strong>{credenciais.loja.nome}</strong></p>
                 <p>Login: <strong>{credenciais.usuario.email}</strong></p>
                 <p>Senha temporária: <strong>{credenciais.senhaTemporaria}</strong></p>
-                <Button variant="ghost" size="sm" className="mt-2 text-green-700" onClick={() => setCredenciais(null)}>
+                <Button variant="ghost" size="sm" className="mt-2 text-green-700 dark:text-green-400" onClick={() => setCredenciais(null)}>
                   Fechar
                 </Button>
               </CardContent>

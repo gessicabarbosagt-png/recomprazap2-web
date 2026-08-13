@@ -36,7 +36,7 @@ export function WaDisconnectedBanner() {
   if (!desconectado || dispensado) return null
 
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-sm">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300 text-sm">
       <div className="flex items-center gap-2 min-w-0">
         <WifiOff className="h-4 w-4 flex-shrink-0 text-amber-600" />
         <span className="truncate">
@@ -48,7 +48,7 @@ export function WaDisconnectedBanner() {
       </div>
       <button
         onClick={dispensar}
-        className="flex-shrink-0 rounded p-0.5 hover:bg-amber-200 transition-colors"
+        className="flex-shrink-0 rounded p-0.5 hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors"
         aria-label="Fechar aviso"
       >
         <X className="h-4 w-4" />

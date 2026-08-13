@@ -34,7 +34,7 @@ export function AdminNotificacoesBanner() {
       {notificacoes.map(n => (
         <div
           key={n.id}
-          className="flex items-center justify-between gap-3 px-4 py-2.5 bg-blue-50 border-b border-blue-200 text-blue-900 text-sm"
+          className="flex items-center justify-between gap-3 px-4 py-2.5 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-300 text-sm"
         >
           <div className="flex items-center gap-2 min-w-0">
             <Bell className="h-4 w-4 flex-shrink-0 text-blue-600" />
@@ -42,7 +42,7 @@ export function AdminNotificacoesBanner() {
           </div>
           <button
             onClick={() => dispensar(n.id)}
-            className="flex-shrink-0 rounded p-0.5 hover:bg-blue-200 transition-colors"
+            className="flex-shrink-0 rounded p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
             aria-label="Marcar como lida"
           >
             <X className="h-4 w-4" />

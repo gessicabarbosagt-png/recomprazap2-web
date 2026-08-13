@@ -398,7 +398,7 @@ export default function ConfiguracoesPage() {
                 </ol>
 
                 {status === 'aguardando' && qrValue && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 w-full max-w-xs text-center">
+                  <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 w-full max-w-xs text-center">
                     Aguardando escaneamento… O QR atualiza automaticamente.
                   </p>
                 )}
@@ -510,7 +510,7 @@ export default function ConfiguracoesPage() {
 function StatusBadge({ status }: { status: Status }) {
   if (status === 'conectado') {
     return (
-      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1.5 flex-shrink-0">
+      <Badge className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 gap-1.5 flex-shrink-0">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
         Conectado
       </Badge>
@@ -518,7 +518,7 @@ function StatusBadge({ status }: { status: Status }) {
   }
   if (status === 'aguardando') {
     return (
-      <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1.5 flex-shrink-0">
+      <Badge className="bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 gap-1.5 flex-shrink-0">
         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
         Aguardando
       </Badge>

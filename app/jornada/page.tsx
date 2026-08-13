@@ -303,14 +303,14 @@ function EtapaRow({
   const isFinal = etapa.tipo !== 'intermediaria'
 
   const tipoBadge = isFinal
-    ? { label: 'Final', className: 'bg-purple-100 text-purple-700 border-purple-200' }
+    ? { label: 'Final', className: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800' }
     : null
 
   const tipoColor = etapa.tipo === 'final_comprou'
-    ? 'bg-emerald-50 border-emerald-200'
+    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800'
     : etapa.tipo === 'final_nao_comprou'
-    ? 'bg-red-50 border-red-200'
-    : 'bg-white'
+    ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800'
+    : 'bg-card'
 
   return (
     <div className={cn(

@@ -128,7 +128,7 @@ export default function AdminPage() {
                           <Badge variant="destructive">WA offline</Badge>
                         )}
                         {loja.statusAssinatura === 'inadimplente' && (
-                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Inadimplente</Badge>
+                          <Badge className="bg-yellow-100 dark:bg-yellow-950/40 text-yellow-800 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800">Inadimplente</Badge>
                         )}
                       </div>
                     </div>

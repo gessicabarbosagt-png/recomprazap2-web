@@ -740,8 +740,8 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
 
               {/* Banner de confirmação de compra com valor */}
               {etapaParaConfirmar !== null && (
-                <div className="px-4 py-2 border-b bg-emerald-50 flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-emerald-700 font-medium">
+                <div className="px-4 py-2 border-b bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
                     Marcar como {etapaParaConfirmar.nome} — Valor (opcional):
                   </span>
                   <input
@@ -752,7 +752,7 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
                     placeholder="0,00"
                     value={valorInput}
                     onChange={(e) => setValorInput(e.target.value)}
-                    className="w-24 rounded border border-emerald-300 bg-white px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    className="w-24 rounded border border-emerald-300 dark:border-emerald-700 bg-background px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
                     onKeyDown={(e) => e.key === 'Enter' && atualizarJornada(etapaParaConfirmar, valorInput ? parseFloat(valorInput) : null)}
                   />
                   <Button
@@ -800,11 +800,11 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
                                 isEnviada && !isLembrete &&
                                   'bg-primary text-primary-foreground rounded-tr-sm',
                                 isEnviada && isLembrete &&
-                                  'bg-blue-100 text-blue-900 rounded-tr-sm border border-blue-200'
+                                  'bg-blue-100 dark:bg-blue-950/50 text-blue-900 dark:text-blue-200 rounded-tr-sm border border-blue-200 dark:border-blue-800'
                               )}
                             >
                               {isEnviada && isLembrete && (
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-500 mb-0.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400 mb-0.5">
                                   Lembrete automático
                                 </p>
                               )}
@@ -897,8 +897,8 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
 // ─── Badge de origem do lead ──────────────────────────────────────────────────
 
 const ORIGENS_MSG: Record<string, { label: string; className: string }> = {
-  meta_ads:  { label: 'Meta Ads',  className: 'bg-blue-100 text-blue-700 border-blue-200' },
-  importado: { label: 'Importado', className: 'bg-gray-100 text-gray-600 border-gray-200' },
+  meta_ads:  { label: 'Meta Ads',  className: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+  importado: { label: 'Importado', className: 'bg-muted text-muted-foreground border-border' },
 }
 
 function OrigemLeadBadge({ origem }: { origem?: string | null }) {
