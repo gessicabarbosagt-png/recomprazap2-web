@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils'
 type Status = 'conectado' | 'desconectado' | 'aguardando'
 type Aba = 'whatsapp' | 'perfil'
 
-const QR_REFRESH_MS = 14_000
+const QR_REFRESH_MS = 3_000
 
 export default function ConfiguracoesPage() {
   const { usuario, login, token } = useAuth()
@@ -73,7 +73,7 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  const buscarQrCode = useCallback(async () => {
+  const buscarQrCode = useCallback(async (): Promise<Status> => {
     try {
       const { data } = await api.get('/whatsapp/qrcode')
       const novoStatus: Status = data.status ?? 'desconectado'
@@ -84,7 +84,10 @@ export default function ConfiguracoesPage() {
         pararPolling()
         toast.success('WhatsApp conectado!')
       }
-    } catch { /* tentará no próximo tick */ }
+      return novoStatus
+    } catch {
+      return 'desconectado'
+    }
   }, [])
 
   async function iniciarConexao() {
@@ -133,7 +136,11 @@ export default function ConfiguracoesPage() {
   }
 
   useEffect(() => {
-    buscarQrCode()
+    buscarQrCode().then(initialStatus => {
+      if (initialStatus === 'aguardando') {
+        intervalRef.current = setInterval(buscarQrCode, QR_REFRESH_MS)
+      }
+    })
     buscarConfigLoja()
     return () => pararPolling()
   }, [buscarQrCode, buscarConfigLoja])
