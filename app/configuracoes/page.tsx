@@ -17,17 +17,31 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import { QRCodeSVG } from 'qrcode.react'
-import { Loader2, Wifi, WifiOff, RefreshCw, Eye, User, AlertTriangle } from 'lucide-react'
+import { Loader2, Wifi, WifiOff, RefreshCw, Eye, User, AlertTriangle, Megaphone, CheckCircle2, XCircle, Power } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Status = 'conectado' | 'desconectado' | 'aguardando'
-type Aba = 'whatsapp' | 'perfil'
+type Aba = 'whatsapp' | 'perfil' | 'meta-ads'
 
 const QR_REFRESH_MS = 3_000
+
+interface MetaConfig {
+  pixelId: string | null
+  temToken: boolean
+  ativa: boolean
+  eventosAtivos: string[]
+  status: 'conectado' | 'erro_config' | 'desativado'
+}
 
 export default function ConfiguracoesPage() {
   const { usuario, login, token } = useAuth()
   const [aba, setAba] = useState<Aba>('whatsapp')
+
+  // ── Meta Ads ───────────────────────────────────────────────────────
+  const [metaConfig, setMetaConfig] = useState<MetaConfig | null>(null)
+  const [metaForm, setMetaForm] = useState({ pixelId: '', accessToken: '', ativa: false, eventosAtivos: ['lead_ctwa'] as string[] })
+  const [salvandoMeta, setSalvandoMeta] = useState(false)
+  const [limpandoToken, setLimpandoToken] = useState(false)
 
   // ── WhatsApp ───────────────────────────────────────────────────────
   const [status, setStatus] = useState<Status>('desconectado')
@@ -135,6 +149,61 @@ export default function ConfiguracoesPage() {
     }
   }
 
+  const buscarMetaConfig = useCallback(async () => {
+    try {
+      const { data } = await api.get('/lojas/minha/meta-ads')
+      setMetaConfig(data)
+      setMetaForm(f => ({
+        ...f,
+        pixelId: data.pixelId ?? '',
+        ativa: data.ativa,
+        eventosAtivos: data.eventosAtivos ?? ['lead_ctwa'],
+      }))
+    } catch { /* silencioso */ }
+  }, [])
+
+  async function toggleEvento(ev: string) {
+    setMetaForm(f => {
+      const ja = f.eventosAtivos.includes(ev)
+      return { ...f, eventosAtivos: ja ? f.eventosAtivos.filter(e => e !== ev) : [...f.eventosAtivos, ev] }
+    })
+  }
+
+  async function salvarMetaAds(e: React.FormEvent) {
+    e.preventDefault()
+    setSalvandoMeta(true)
+    try {
+      const payload: Record<string, unknown> = {
+        pixelId: metaForm.pixelId || null,
+        ativa: metaForm.ativa,
+        eventosAtivos: metaForm.eventosAtivos,
+      }
+      if (metaForm.accessToken) payload.accessToken = metaForm.accessToken
+      const { data } = await api.patch('/lojas/minha/meta-ads', payload)
+      setMetaConfig(data)
+      setMetaForm(f => ({ ...f, accessToken: '' }))
+      toast.success('Configuração Meta Ads salva')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Erro ao salvar')
+    } finally {
+      setSalvandoMeta(false)
+    }
+  }
+
+  async function limparTokenMeta() {
+    if (!confirm('Remover o Access Token? A integração será desativada até configurar um novo.')) return
+    setLimpandoToken(true)
+    try {
+      await api.delete('/lojas/minha/meta-ads/token')
+      await buscarMetaConfig()
+      toast.success('Token removido')
+    } catch {
+      toast.error('Erro ao remover token')
+    } finally {
+      setLimpandoToken(false)
+    }
+  }
+
   useEffect(() => {
     buscarQrCode().then(initialStatus => {
       if (initialStatus === 'aguardando') {
@@ -142,8 +211,9 @@ export default function ConfiguracoesPage() {
       }
     })
     buscarConfigLoja()
+    buscarMetaConfig()
     return () => pararPolling()
-  }, [buscarQrCode, buscarConfigLoja])
+  }, [buscarQrCode, buscarConfigLoja, buscarMetaConfig])
 
   async function salvarPerfil(e: React.FormEvent) {
     e.preventDefault()
@@ -226,7 +296,7 @@ export default function ConfiguracoesPage() {
 
         {/* Abas */}
         <div className="flex gap-1 border-b">
-          {([['whatsapp', 'WhatsApp'], ['perfil', 'Perfil']] as [Aba, string][]).map(([id, label]) => (
+          {([['whatsapp', 'WhatsApp'], ['perfil', 'Perfil'], ['meta-ads', 'Meta Ads']] as [Aba, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setAba(id)}
@@ -337,6 +407,109 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {aba === 'meta-ads' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <Megaphone className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <CardTitle>Integração Meta Ads</CardTitle>
+                    <CardDescription className="mt-1">
+                      Envie eventos de conversão (Lead CTWA, Purchase) de volta para o pixel de cada loja via Conversions API.
+                    </CardDescription>
+                  </div>
+                </div>
+                <MetaStatusBadge status={metaConfig?.status ?? 'desativado'} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={salvarMetaAds} className="space-y-5">
+                <div className="space-y-1.5">
+                  <Label>Pixel ID</Label>
+                  <Input
+                    value={metaForm.pixelId}
+                    onChange={e => setMetaForm(f => ({ ...f, pixelId: e.target.value }))}
+                    placeholder="123456789012345"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>
+                    Access Token (Conversions API)
+                    {metaConfig?.temToken && (
+                      <span className="ml-2 text-xs text-emerald-600 font-normal">token salvo</span>
+                    )}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      value={metaForm.accessToken}
+                      onChange={e => setMetaForm(f => ({ ...f, accessToken: e.target.value }))}
+                      placeholder={metaConfig?.temToken ? 'Deixe em branco para manter o atual' : 'Cole o token gerado no Meta Business Manager'}
+                      className="flex-1"
+                    />
+                    {metaConfig?.temToken && (
+                      <Button type="button" variant="ghost" size="sm" onClick={limparTokenMeta} disabled={limpandoToken}>
+                        {limpandoToken ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remover'}
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Gere em: Meta Business Manager → Configurações → Pixels → seu pixel → Configurar → Conversions API → Criar access token
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Eventos automáticos</Label>
+                  {[
+                    { id: 'lead_ctwa', label: 'Lead — ao receber mensagem via anúncio Clique para WhatsApp' },
+                    { id: 'purchase_comprou', label: 'Purchase — ao mover pedido para etapa "Comprou" na Jornada' },
+                  ].map(ev => (
+                    <label key={ev.id} className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={metaForm.eventosAtivos.includes(ev.id)}
+                        onChange={() => toggleEvento(ev.id)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary"
+                      />
+                      <span className="text-sm">{ev.label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">Ativar envio automático</p>
+                    <p className="text-xs text-muted-foreground">Quando desativado, nenhum evento é enviado à Meta</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={metaForm.ativa}
+                    onClick={() => setMetaForm(f => ({ ...f, ativa: !f.ativa }))}
+                    className={cn(
+                      'relative flex-shrink-0 h-6 w-11 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      metaForm.ativa ? 'bg-primary' : 'bg-muted-foreground/30',
+                    )}
+                  >
+                    <span className={cn(
+                      'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+                      metaForm.ativa ? 'translate-x-5' : 'translate-x-0',
+                    )} />
+                  </button>
+                </div>
+
+                <Button type="submit" disabled={salvandoMeta}>
+                  {salvandoMeta ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando…</> : 'Salvar configuração'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
         )}
 
         {aba === 'whatsapp' && (
@@ -511,6 +684,31 @@ export default function ConfiguracoesPage() {
         </DialogContent>
       </Dialog>
     </LayoutShell>
+  )
+}
+
+function MetaStatusBadge({ status }: { status: 'conectado' | 'erro_config' | 'desativado' }) {
+  if (status === 'conectado') {
+    return (
+      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1.5 flex-shrink-0">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Conectado
+      </Badge>
+    )
+  }
+  if (status === 'erro_config') {
+    return (
+      <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1.5 flex-shrink-0">
+        <XCircle className="h-3.5 w-3.5" />
+        Erro de configuração
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="secondary" className="gap-1.5 flex-shrink-0">
+      <Power className="h-3.5 w-3.5" />
+      Desativado
+    </Badge>
   )
 }
 
