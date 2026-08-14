@@ -49,8 +49,8 @@ export function Sidebar() {
   const { usuario, logout } = useAuth()
 
   return (
-    <aside className="flex flex-col w-60 min-h-screen border-r bg-card px-3 py-4">
-      <div className="px-2 mb-6">
+    <aside className="sticky top-0 h-screen flex flex-col w-60 border-r bg-card px-3 py-4 overflow-hidden">
+      <div className="flex-shrink-0 px-2 mb-6">
         <span className="text-xl font-bold">♻️ RecompraZap</span>
         {usuario?.loja && (
           <p className="text-xs text-muted-foreground mt-1 truncate">{usuario.loja.nome}</p>
@@ -61,7 +61,7 @@ export function Sidebar() {
       </div>
 
       {usuario?.role === 'admin' ? (
-        <div className="flex-1 flex flex-col gap-0">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
           <nav className="space-y-1">
             {[
               { href: '/admin', label: 'Painel Admin', icon: ShieldCheck },
@@ -108,7 +108,7 @@ export function Sidebar() {
           )}
         </div>
       ) : (
-        <nav className="flex-1 space-y-1">
+        <nav className="flex-1 space-y-1 overflow-y-auto min-h-0">
           {nav.map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href}>
               <span
@@ -127,7 +127,7 @@ export function Sidebar() {
         </nav>
       )}
 
-      <nav className="space-y-1 mb-1">
+      <nav className="flex-shrink-0 space-y-1 mb-1 mt-2">
         {navBottom.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href}>
             <span
@@ -145,10 +145,10 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <Separator className="my-3" />
+      <Separator className="flex-shrink-0 my-3" />
 
       {usuario && (
-        <div className="px-2 space-y-1">
+        <div className="flex-shrink-0 px-2 space-y-1">
           <p className="text-xs font-medium truncate">{usuario.nome}</p>
           <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
           <ThemeToggle />

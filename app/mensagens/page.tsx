@@ -173,6 +173,9 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
   const [novoPedidoValor, setNovoPedidoValor] = useState('')
   const [novoPedidoMode, setNovoPedidoMode] = useState<'interesse' | 'compra' | null>(null)
   const [criandoPedido, setCriandoPedido] = useState(false)
+  const [informandoValor, setInformandoValor] = useState(false)
+  const [valorInformar, setValorInformar] = useState('')
+  const [salvandoValor, setSalvandoValor] = useState(false)
 
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -403,6 +406,26 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
     }
   }
 
+  // ── Informar valor de venda em pedido já fechado ────────────────────────────
+
+  async function salvarValorVenda() {
+    if (!ultimoPedidoFechado) return
+    const v = parseFloat(valorInformar.replace(',', '.'))
+    if (isNaN(v) || v < 0) { toast.error('Valor inválido'); return }
+    setSalvandoValor(true)
+    try {
+      await api.patch(`/pedidos/${ultimoPedidoFechado.id}/valor`, { valor: v })
+      setUltimoPedidoFechado(prev => prev ? { ...prev, valor: v } : prev)
+      setInformandoValor(false)
+      setValorInformar('')
+      toast.success('Valor registrado!')
+    } catch {
+      toast.error('Erro ao salvar valor')
+    } finally {
+      setSalvandoValor(false)
+    }
+  }
+
   // ── Criar novo pedido ────────────────────────────────────────────────────────
 
   async function criarNovoPedido(tipo: 'interesse' | 'compra', valor?: number | null) {
@@ -623,15 +646,52 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
 
                     {/* Indicador de último pedido fechado (quando sem aberto) */}
                     {!pedidoAberto && ultimoPedidoFechado && (
-                      <span className={cn(
-                        'text-[11px] font-medium',
-                        ultimoPedidoFechado.etapaTipo === 'final_comprou' ? 'text-emerald-600' : 'text-muted-foreground',
-                      )}>
-                        {ultimoPedidoFechado.etapaTipo === 'final_comprou'
-                          ? `Última compra: ${formatDataCompleta(ultimoPedidoFechado.createdAt)} · ${formatValor(ultimoPedidoFechado.valor)}`
-                          : `Não comprou em ${formatDataCompleta(ultimoPedidoFechado.createdAt)}`
-                        }
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className={cn(
+                          'text-[11px] font-medium',
+                          ultimoPedidoFechado.etapaTipo === 'final_comprou' ? 'text-emerald-600' : 'text-muted-foreground',
+                        )}>
+                          {ultimoPedidoFechado.etapaTipo === 'final_comprou'
+                            ? `Última compra: ${formatDataCompleta(ultimoPedidoFechado.createdAt)} · ${ultimoPedidoFechado.valor != null ? formatValor(ultimoPedidoFechado.valor) : '—'}`
+                            : `Não comprou em ${formatDataCompleta(ultimoPedidoFechado.createdAt)}`
+                          }
+                        </span>
+                        {ultimoPedidoFechado.etapaTipo === 'final_comprou' && ultimoPedidoFechado.valor == null && !informandoValor && (
+                          <button
+                            type="button"
+                            onClick={() => { setInformandoValor(true); setValorInformar('') }}
+                            className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 hover:underline font-medium"
+                          >
+                            Informar valor de venda
+                          </button>
+                        )}
+                        {informandoValor && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[11px] text-muted-foreground">R$</span>
+                            <input
+                              autoFocus
+                              type="text"
+                              inputMode="decimal"
+                              value={valorInformar}
+                              onChange={e => setValorInformar(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') salvarValorVenda(); if (e.key === 'Escape') setInformandoValor(false) }}
+                              placeholder="0,00"
+                              className="w-20 h-6 rounded border border-input bg-background px-1.5 text-[11px]"
+                            />
+                            <button
+                              type="button"
+                              onClick={salvarValorVenda}
+                              disabled={salvandoValor}
+                              className="text-[11px] text-primary hover:underline"
+                            >
+                              Salvar
+                            </button>
+                            <button type="button" onClick={() => setInformandoValor(false)} className="text-[11px] text-muted-foreground hover:underline">
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Botão histórico */}

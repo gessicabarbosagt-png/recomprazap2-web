@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { flushSync } from 'react-dom'
 import { useReactToPrint } from 'react-to-print'
 import { LayoutShell } from '@/components/app/layout-shell'
@@ -441,9 +442,9 @@ export default function DashboardPage() {
                       : '—'}
                   </p>
                   {jornada && jornada.comprasSemValor > 0 && (
-                    <p className="text-xs text-amber-600 mt-1">
+                    <Link href="/pedidos?etapa=comprou" className="text-xs text-amber-600 hover:underline mt-1 inline-block">
                       {jornada.comprasSemValor} venda{jornada.comprasSemValor > 1 ? 's' : ''} sem valor informado
-                    </p>
+                    </Link>
                   )}
                 </>
               )}

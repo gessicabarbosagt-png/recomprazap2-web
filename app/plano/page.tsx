@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/dialog'
 import {
   CreditCard, QrCode, CheckCircle, XCircle, Clock, Loader2,
-  Copy, RefreshCw, AlertTriangle, ShieldCheck,
+  Copy, RefreshCw, AlertTriangle, ShieldCheck, MessageCircle, CalendarDays, ExternalLink,
+  Star,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -257,6 +258,8 @@ export default function PlanoPage() {
   const [processando, setProcessando] = useState(false)
   const [pixGerado, setPixGerado]     = useState<PixGerado | null>(null)
   const [cancelDialog, setCancelDialog] = useState(false)
+  const [planosAberto, setPlanosAberto] = useState(false)
+  const [suporteAberto, setSuporteAberto] = useState(false)
 
   const carregarDados = useCallback(async () => {
     try {
@@ -362,9 +365,15 @@ export default function PlanoPage() {
   return (
     <LayoutShell>
       <div className="max-w-2xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Meu Plano</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gerencie sua assinatura e histórico de pagamentos</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Meu Plano</h1>
+            <p className="text-sm text-muted-foreground mt-1">Gerencie sua assinatura e histórico de pagamentos</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setPlanosAberto(true)}>
+            <Star className="h-4 w-4 mr-2" />
+            Ver opções de plano
+          </Button>
         </div>
 
         {/* Banner inadimplente */}
@@ -609,6 +618,104 @@ export default function PlanoPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog: opções de plano */}
+      <Dialog open={planosAberto} onOpenChange={setPlanosAberto}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Opções de plano</DialogTitle>
+            <DialogDescription>Escolha o plano ideal para o crescimento da sua loja.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+            {[
+              {
+                nome: 'Starter',
+                preco: 'R$ 97/mês',
+                descricao: 'Ideal para quem está começando',
+                recursos: ['Até 500 clientes ativos', '1 WhatsApp conectado', 'Ciclos de recompra', 'Suporte por chat'],
+                destaque: false,
+              },
+              {
+                nome: 'Pro',
+                preco: 'R$ 197/mês',
+                descricao: 'Para lojas em crescimento',
+                recursos: ['Clientes ilimitados', '1 WhatsApp conectado', 'Meta Ads & Links de rastreamento', 'Fluxo de conversa avançado', 'Suporte prioritário'],
+                destaque: true,
+              },
+              {
+                nome: 'Scale',
+                preco: 'Sob consulta',
+                descricao: 'Para redes e múltiplas unidades',
+                recursos: ['Múltiplos WhatsApps', 'Painel multi-loja', 'Integrações customizadas', 'Gerente de conta dedicado'],
+                destaque: false,
+              },
+            ].map(plano => (
+              <div
+                key={plano.nome}
+                className={`rounded-xl border p-5 flex flex-col gap-3 ${plano.destaque ? 'border-primary ring-1 ring-primary bg-primary/5' : ''}`}
+              >
+                {plano.destaque && (
+                  <span className="text-xs font-medium text-primary">⭐ Mais popular</span>
+                )}
+                <div>
+                  <p className="font-bold text-lg">{plano.nome}</p>
+                  <p className="text-sm font-semibold text-muted-foreground">{plano.preco}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{plano.descricao}</p>
+                </div>
+                <ul className="space-y-1.5 flex-1">
+                  {plano.recursos.map(r => (
+                    <li key={r} className="flex items-start gap-2 text-xs">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-center mt-4">
+            <Button onClick={() => { setPlanosAberto(false); setSuporteAberto(true) }}>
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Falar com a equipe
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: suporte (mesmo do /ajuda) */}
+      <Dialog open={suporteAberto} onOpenChange={setSuporteAberto}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Como podemos ajudar?</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <a href="https://wa.me/5511983202160" target="_blank" rel="noopener noreferrer">
+              <div className="flex flex-col items-center gap-3 p-6 rounded-lg border hover:bg-accent transition-colors cursor-pointer text-center">
+                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
+                  <MessageCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Falar no WhatsApp</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Resposta rápida</p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+            </a>
+            <a href="https://calendly.com/gessicabarbosa-gt" target="_blank" rel="noopener noreferrer">
+              <div className="flex flex-col items-center gap-3 p-6 rounded-lg border hover:bg-accent transition-colors cursor-pointer text-center">
+                <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
+                  <CalendarDays className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Agendar demonstração</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Conheça mais</p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+            </a>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: cancelar assinatura */}
       <Dialog open={cancelDialog} onOpenChange={setCancelDialog}>

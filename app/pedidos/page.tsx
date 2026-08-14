@@ -9,7 +9,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { MessageSquare, ArrowLeft } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   PeriodSelector,
@@ -74,6 +76,9 @@ function PedidosContent() {
   const [period, setPeriod] = useState<PeriodValue>(initialPeriod)
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(true)
+  const [editandoValorId, setEditandoValorId] = useState<string | null>(null)
+  const [editandoValorInput, setEditandoValorInput] = useState('')
+  const [salvandoValorId, setSalvandoValorId] = useState<string | null>(null)
 
   // Sincroniza estado de período → URL (sem reload)
   const updateUrl = useCallback((v: PeriodValue) => {
@@ -89,6 +94,23 @@ function PedidosContent() {
   function handlePeriodChange(v: PeriodValue) {
     setPeriod(v)
     updateUrl(v)
+  }
+
+  async function salvarValorPedido(id: string) {
+    const v = parseFloat(editandoValorInput.replace(',', '.'))
+    if (isNaN(v) || v < 0) { toast.error('Valor inválido'); return }
+    setSalvandoValorId(id)
+    try {
+      await api.patch(`/pedidos/${id}/valor`, { valor: v })
+      setPedidos(prev => prev.map(p => p.id === id ? { ...p, valor: v } : p))
+      setEditandoValorId(null)
+      setEditandoValorInput('')
+      toast.success('Valor registrado!')
+    } catch {
+      toast.error('Erro ao salvar valor')
+    } finally {
+      setSalvandoValorId(null)
+    }
   }
 
   // Carrega pedidos ao mudar etapa ou período
@@ -201,13 +223,41 @@ function PedidosContent() {
                       <TableCell className="text-muted-foreground">
                         {p.produtoNome ?? '—'}
                       </TableCell>
-                      <TableCell
-                        className={cn(
-                          'font-medium',
-                          p.valor != null ? 'text-emerald-700' : 'text-muted-foreground',
+                      <TableCell className="font-medium">
+                        {p.valor != null ? (
+                          <span className="text-emerald-700">{formatValor(p.valor)}</span>
+                        ) : editandoValorId === p.id ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">R$</span>
+                            <Input
+                              autoFocus
+                              type="text"
+                              inputMode="decimal"
+                              value={editandoValorInput}
+                              onChange={e => setEditandoValorInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') salvarValorPedido(p.id); if (e.key === 'Escape') setEditandoValorId(null) }}
+                              className="h-7 w-24 text-xs px-1.5"
+                              placeholder="0,00"
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => salvarValorPedido(p.id)}
+                              disabled={salvandoValorId === p.id}
+                            >
+                              OK
+                            </Button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setEditandoValorId(p.id); setEditandoValorInput('') }}
+                            className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-medium"
+                          >
+                            Informar valor
+                          </button>
                         )}
-                      >
-                        {formatValor(p.valor)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {dataDisplay}
