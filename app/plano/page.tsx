@@ -20,6 +20,7 @@ import {
   Copy, RefreshCw, AlertTriangle, ShieldCheck, MessageCircle, CalendarDays, ExternalLink,
   Star, Users, TrendingUp, TrendingDown,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { QRCodeSVG } from 'qrcode.react'
@@ -751,82 +752,121 @@ export default function PlanoPage() {
         </Card>
       </div>
 
-      {/* Dialog: opções de plano (dados reais do catálogo) */}
+      {/* Dialog: opções de plano (redesigned) */}
       <Dialog open={planosAberto} onOpenChange={setPlanosAberto}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Opções de plano</DialogTitle>
-            <DialogDescription>Compare os planos e faça upgrade ou downgrade a qualquer momento.</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+          {/* Cabeçalho */}
+          <div className="px-6 pt-6 pb-0">
+            <DialogHeader className="pb-0">
+              <DialogTitle className="text-lg">Escolha seu plano</DialogTitle>
+            </DialogHeader>
+          </div>
+
+          {/* Banner de valor */}
+          <div className="mx-6 mt-3 mb-1 rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/15 px-4 py-2.5">
+            <p className="text-sm font-medium text-foreground">
+              Mais clientes, mais automação, menos trabalho manual.
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Mude de plano a qualquer momento, sem burocracia.
+            </p>
+          </div>
+
+          {/* Cards dos planos */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-6 py-4">
             {catalogo.map(p => {
-              const isCurrent = planoLoja?.planoSlug === p.slug
-              const isPendingDowngrade = planoLoja?.planoPendente?.slug === p.slug
-              const valorAtual = planoLoja?.valorMensalidade ? Number(planoLoja.valorMensalidade) : null
-              const isUpgrade = valorAtual != null && Number(p.precoMensal) > valorAtual && !isCurrent
-              const isDowngrade = valorAtual != null && Number(p.precoMensal) < valorAtual && !isCurrent
+              const isCurrent       = planoLoja?.planoSlug === p.slug
+              const isPendingDown   = planoLoja?.planoPendente?.slug === p.slug
+              const valorAtual      = planoLoja?.valorMensalidade ? Number(planoLoja.valorMensalidade) : null
+              const isUpgrade       = valorAtual != null && Number(p.precoMensal) > valorAtual && !isCurrent
+              const isDowngrade     = valorAtual != null && Number(p.precoMensal) < valorAtual && !isCurrent
+              const isPro           = p.slug === 'pro'
 
               const FEATURE_LABELS: Record<string, string> = {
-                relatorio_periodico: 'Relatório periódico',
-                cupons_reativacao: 'Cupons de reativação',
-                alertas_automaticos: 'Alertas automáticos',
+                relatorio_periodico:  'Relatório periódico',
+                cupons_reativacao:    'Cupons de reativação',
+                alertas_automaticos:  'Alertas automáticos',
                 exportacao_pdf_excel: 'Exportação PDF/Excel',
-                painel_central_rede: 'Painel central da rede',
+                painel_central_rede:  'Painel central da rede',
               }
               const SUPORTE_LABEL: Record<string, string> = {
-                chat: 'Suporte por chat',
-                prioritario: 'Suporte prioritário',
+                chat:             'Suporte por chat',
+                prioritario:      'Suporte prioritário',
                 gerente_dedicado: 'Gerente de conta dedicado',
               }
 
               return (
                 <div
                   key={p.slug}
-                  className={`rounded-xl border p-5 flex flex-col gap-3 ${
-                    isCurrent ? 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20' :
-                    p.slug === 'pro' ? 'border-primary ring-1 ring-primary bg-primary/5' : ''
-                  }`}
+                  className={cn(
+                    'rounded-xl border p-4 flex flex-col gap-3',
+                    isCurrent && 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20',
+                    isPro && !isCurrent && 'border-primary ring-2 ring-primary/70 bg-primary/5 shadow-sm',
+                    !isCurrent && !isPro && 'border-border',
+                  )}
                 >
-                  <div className="flex items-start justify-between gap-1">
-                    <div>
-                      {isCurrent && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ Plano atual</span>}
-                      {p.slug === 'pro' && !isCurrent && <span className="text-xs font-medium text-primary">⭐ Mais popular</span>}
-                      {isPendingDowngrade && <span className="text-xs font-medium text-blue-600">Agendado</span>}
-                      {!isCurrent && !isPendingDowngrade && p.slug !== 'pro' && <span className="text-xs"> </span>}
-                    </div>
+                  {/* Badge de estado */}
+                  <div className="h-5">
+                    {isCurrent ? (
+                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 py-0 border-emerald-500 text-emerald-600 dark:text-emerald-400">
+                        ✓ Plano atual
+                      </Badge>
+                    ) : isPro ? (
+                      <Badge className="text-[10px] h-4 px-1.5 py-0 bg-primary text-primary-foreground">
+                        ⭐ Mais popular
+                      </Badge>
+                    ) : isPendingDown ? (
+                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 py-0 border-blue-400 text-blue-600 dark:text-blue-400">
+                        Agendado
+                      </Badge>
+                    ) : null}
                   </div>
+
+                  {/* Nome + preço */}
                   <div>
-                    <p className="font-bold text-lg">{p.nome}</p>
-                    <p className="text-sm font-semibold text-muted-foreground">
-                      R$ {Number(p.precoMensal).toFixed(2).replace('.', ',')}
-                      {p.slug === 'rede' ? '/unidade/mês' : '/mês'}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className={cn('font-bold text-base', isPro && !isCurrent && 'text-primary')}>{p.nome}</p>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-2xl font-bold tracking-tight">
+                        R$ {Number(p.precoMensal).toFixed(0)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {p.slug === 'rede' ? '/unid/mês' : '/mês'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Até {p.limiteClientes} clientes{p.slug === 'rede' ? ' por unidade' : ''}
                     </p>
                   </div>
+
+                  {/* Lista de features */}
                   <ul className="space-y-1.5 flex-1">
                     {Object.entries(p.features)
                       .filter(([k]) => k in FEATURE_LABELS)
                       .map(([k, v]) => (
-                        <li key={k} className="flex items-start gap-2 text-xs">
+                        <li key={k} className="flex items-center gap-2 text-xs">
                           {v
-                            ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                            : <XCircle    className="h-3.5 w-3.5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />}
-                          <span className={v ? '' : 'text-muted-foreground/60'}>{FEATURE_LABELS[k]}</span>
+                            ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                            : <XCircle    className="h-3.5 w-3.5 text-muted-foreground/25 flex-shrink-0" />}
+                          <span className={cn(v ? 'text-foreground' : 'text-muted-foreground/50 line-through')}>
+                            {FEATURE_LABELS[k]}
+                          </span>
                         </li>
                       ))}
                     {p.features.suporte_tipo && (
-                      <li className="flex items-start gap-2 text-xs">
-                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                        {SUPORTE_LABEL[p.features.suporte_tipo] ?? p.features.suporte_tipo}
+                      <li className="flex items-center gap-2 text-xs">
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                        <span>{SUPORTE_LABEL[p.features.suporte_tipo] ?? p.features.suporte_tipo}</span>
                       </li>
                     )}
                     {p.features.descricao && (
-                      <li className="text-xs text-muted-foreground italic mt-1">{p.features.descricao}</li>
+                      <li className="text-[11px] text-muted-foreground italic pt-1 leading-snug">
+                        {p.features.descricao}
+                      </li>
                     )}
                   </ul>
-                  <div className="mt-auto pt-2">
+
+                  {/* Botão de ação */}
+                  <div className="mt-auto pt-1">
                     {isCurrent ? (
                       <Button size="sm" className="w-full" variant="outline" disabled>Plano atual</Button>
                     ) : !p.selfServe ? (
@@ -835,22 +875,29 @@ export default function PlanoPage() {
                         <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
                         Entrar em contato
                       </Button>
-                    ) : isPendingDowngrade ? (
+                    ) : isPendingDown ? (
                       <Button size="sm" className="w-full" variant="outline" disabled>
                         Downgrade agendado
                       </Button>
                     ) : isUpgrade ? (
-                      <Button size="sm" className="w-full" onClick={() => handleUpgrade(p.slug)} disabled={aplicandoPlano}>
-                        {aplicandoPlano ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5 mr-1.5" />}
+                      <Button size="sm" className={cn('w-full', isPro && 'font-semibold shadow-sm')}
+                        onClick={() => handleUpgrade(p.slug)} disabled={aplicandoPlano}>
+                        {aplicandoPlano
+                          ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          : <TrendingUp className="h-3.5 w-3.5 mr-1.5" />}
                         Fazer upgrade
                       </Button>
                     ) : isDowngrade ? (
-                      <Button size="sm" className="w-full" variant="outline" onClick={() => handleDowngrade(p.slug)} disabled={aplicandoPlano}>
-                        {aplicandoPlano ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <TrendingDown className="h-3.5 w-3.5 mr-1.5" />}
+                      <Button size="sm" className="w-full" variant="outline"
+                        onClick={() => handleDowngrade(p.slug)} disabled={aplicandoPlano}>
+                        {aplicandoPlano
+                          ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          : <TrendingDown className="h-3.5 w-3.5 mr-1.5" />}
                         Fazer downgrade
                       </Button>
                     ) : (
-                      <Button size="sm" className="w-full" onClick={() => handleUpgrade(p.slug)} disabled={aplicandoPlano}>
+                      <Button size="sm" className="w-full"
+                        onClick={() => handleUpgrade(p.slug)} disabled={aplicandoPlano}>
                         Selecionar plano
                       </Button>
                     )}
@@ -859,9 +906,21 @@ export default function PlanoPage() {
               )
             })}
           </div>
-          <p className="text-xs text-center text-muted-foreground mt-2">
-            Upgrade: aplicado imediatamente, novo valor na próxima cobrança MP. Downgrade: efetivo no próximo vencimento.
-          </p>
+
+          {/* Rodapé: selos de confiança */}
+          <div className="border-t bg-muted/40 px-6 py-3">
+            <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" /> Upgrade imediato
+              </span>
+              <span className="opacity-30 select-none">·</span>
+              <span>Downgrade no próximo vencimento</span>
+              <span className="opacity-30 select-none">·</span>
+              <span>Sem taxa de setup</span>
+              <span className="opacity-30 select-none">·</span>
+              <span>Cancele quando quiser</span>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
