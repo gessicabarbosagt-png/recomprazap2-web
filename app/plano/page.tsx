@@ -18,13 +18,37 @@ import {
 import {
   CreditCard, QrCode, CheckCircle, XCircle, Clock, Loader2,
   Copy, RefreshCw, AlertTriangle, ShieldCheck, MessageCircle, CalendarDays, ExternalLink,
-  Star,
+  Star, Users, TrendingUp, TrendingDown,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { QRCodeSVG } from 'qrcode.react'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
+
+interface PlanoCatalogo {
+  id: string
+  slug: string
+  nome: string
+  precoMensal: number
+  limiteClientes: number
+  selfServe: boolean
+  features: Record<string, any>
+}
+
+interface PlanoLoja {
+  planoSlug: string | null
+  planoNome: string
+  limiteClientes: number | null
+  totalClientes: number
+  valorMensalidade: number | null
+  planoPendente: {
+    slug: string
+    nome: string
+    precoMensal: number
+    efetivaDm: string
+  } | null
+}
 
 interface StatusPlano {
   statusAssinatura: 'ativa' | 'inadimplente' | 'cancelada'
@@ -260,15 +284,22 @@ export default function PlanoPage() {
   const [cancelDialog, setCancelDialog] = useState(false)
   const [planosAberto, setPlanosAberto] = useState(false)
   const [suporteAberto, setSuporteAberto] = useState(false)
+  const [catalogo, setCatalogo] = useState<PlanoCatalogo[]>([])
+  const [planoLoja, setPlanoLoja] = useState<PlanoLoja | null>(null)
+  const [aplicandoPlano, setAplicandoPlano] = useState(false)
 
   const carregarDados = useCallback(async () => {
     try {
-      const [planoRes, pagRes] = await Promise.all([
+      const [planoRes, pagRes, catalogoRes, planoLojaRes] = await Promise.all([
         api.get('/pagamentos/plano'),
         api.get('/pagamentos'),
+        api.get('/planos/catalogo').catch(() => ({ data: [] })),
+        api.get('/lojas/minha/plano').catch(() => ({ data: null })),
       ])
       setStatusPlano(planoRes.data)
       setPagamentos(pagRes.data)
+      setCatalogo(catalogoRes.data)
+      setPlanoLoja(planoLojaRes.data)
     } catch {
       toast.error('Erro ao carregar dados do plano')
     } finally {
@@ -294,6 +325,44 @@ export default function PlanoPage() {
       })
     }
   }, [pagamentos])
+
+  async function handleUpgrade(planoSlug: string) {
+    setAplicandoPlano(true)
+    try {
+      await api.post('/lojas/minha/plano/upgrade', { planoSlug })
+      toast.success('Plano atualizado! O novo valor será cobrado no próximo ciclo.')
+      setPlanosAberto(false)
+      await carregarDados()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Erro ao aplicar upgrade')
+    } finally {
+      setAplicandoPlano(false)
+    }
+  }
+
+  async function handleDowngrade(planoSlug: string) {
+    setAplicandoPlano(true)
+    try {
+      const { data } = await api.post('/lojas/minha/plano/downgrade', { planoSlug })
+      toast.success(`Downgrade agendado para ${fmtData(data.efetivaDm)}. O plano mudará automaticamente nessa data.`)
+      setPlanosAberto(false)
+      await carregarDados()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Erro ao agendar downgrade')
+    } finally {
+      setAplicandoPlano(false)
+    }
+  }
+
+  async function handleCancelarDowngradePendente() {
+    try {
+      await api.delete('/lojas/minha/plano/downgrade-pendente')
+      toast.success('Downgrade agendado cancelado.')
+      await carregarDados()
+    } catch {
+      toast.error('Erro ao cancelar downgrade')
+    }
+  }
 
   async function handleToken(token: string, lastFour: string, email: string) {
     setProcessando(true)
@@ -375,6 +444,69 @@ export default function PlanoPage() {
             Ver opções de plano
           </Button>
         </div>
+
+        {/* Banner: downgrade pendente */}
+        {planoLoja?.planoPendente && (
+          <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <TrendingDown className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Downgrade agendado</p>
+                <p className="text-xs text-blue-800 dark:text-blue-400 mt-0.5">
+                  Em {fmtData(planoLoja.planoPendente.efetivaDm)}, seu plano mudará para <strong>{planoLoja.planoPendente.nome}</strong>{' '}
+                  (R$ {Number(planoLoja.planoPendente.precoMensal).toFixed(2).replace('.', ',')}/mês).
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-blue-700 dark:text-blue-400 flex-shrink-0 text-xs" onClick={handleCancelarDowngradePendente}>
+              Cancelar
+            </Button>
+          </div>
+        )}
+
+        {/* Card: plano atual + uso de clientes */}
+        {planoLoja && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Star className="h-4 w-4 text-primary" />
+                {planoLoja.planoNome}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {planoLoja.limiteClientes != null && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Users className="h-3.5 w-3.5" />
+                      Clientes cadastrados
+                    </span>
+                    <span className={planoLoja.totalClientes >= planoLoja.limiteClientes ? 'text-destructive font-medium' : 'font-medium'}>
+                      {planoLoja.totalClientes} / {planoLoja.limiteClientes}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        planoLoja.totalClientes / planoLoja.limiteClientes >= 0.9
+                          ? 'bg-destructive'
+                          : planoLoja.totalClientes / planoLoja.limiteClientes >= 0.7
+                          ? 'bg-amber-500'
+                          : 'bg-primary'
+                      }`}
+                      style={{ width: `${Math.min(100, (planoLoja.totalClientes / planoLoja.limiteClientes) * 100)}%` }}
+                    />
+                  </div>
+                  {planoLoja.totalClientes >= planoLoja.limiteClientes && (
+                    <p className="text-xs text-destructive">
+                      Limite atingido. Faça upgrade para cadastrar mais clientes.
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Banner inadimplente */}
         {plano.statusAssinatura === 'inadimplente' && (
@@ -619,66 +751,117 @@ export default function PlanoPage() {
         </Card>
       </div>
 
-      {/* Dialog: opções de plano */}
+      {/* Dialog: opções de plano (dados reais do catálogo) */}
       <Dialog open={planosAberto} onOpenChange={setPlanosAberto}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Opções de plano</DialogTitle>
-            <DialogDescription>Escolha o plano ideal para o crescimento da sua loja.</DialogDescription>
+            <DialogDescription>Compare os planos e faça upgrade ou downgrade a qualquer momento.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
-            {[
-              {
-                nome: 'Starter',
-                preco: 'R$ 97/mês',
-                descricao: 'Ideal para quem está começando',
-                recursos: ['Até 500 clientes ativos', '1 WhatsApp conectado', 'Ciclos de recompra', 'Suporte por chat'],
-                destaque: false,
-              },
-              {
-                nome: 'Pro',
-                preco: 'R$ 197/mês',
-                descricao: 'Para lojas em crescimento',
-                recursos: ['Clientes ilimitados', '1 WhatsApp conectado', 'Meta Ads & Links de rastreamento', 'Fluxo de conversa avançado', 'Suporte prioritário'],
-                destaque: true,
-              },
-              {
-                nome: 'Scale',
-                preco: 'Sob consulta',
-                descricao: 'Para redes e múltiplas unidades',
-                recursos: ['Múltiplos WhatsApps', 'Painel multi-loja', 'Integrações customizadas', 'Gerente de conta dedicado'],
-                destaque: false,
-              },
-            ].map(plano => (
-              <div
-                key={plano.nome}
-                className={`rounded-xl border p-5 flex flex-col gap-3 ${plano.destaque ? 'border-primary ring-1 ring-primary bg-primary/5' : ''}`}
-              >
-                {plano.destaque && (
-                  <span className="text-xs font-medium text-primary">⭐ Mais popular</span>
-                )}
-                <div>
-                  <p className="font-bold text-lg">{plano.nome}</p>
-                  <p className="text-sm font-semibold text-muted-foreground">{plano.preco}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{plano.descricao}</p>
+            {catalogo.map(p => {
+              const isCurrent = planoLoja?.planoSlug === p.slug
+              const isPendingDowngrade = planoLoja?.planoPendente?.slug === p.slug
+              const valorAtual = planoLoja?.valorMensalidade ? Number(planoLoja.valorMensalidade) : null
+              const isUpgrade = valorAtual != null && Number(p.precoMensal) > valorAtual && !isCurrent
+              const isDowngrade = valorAtual != null && Number(p.precoMensal) < valorAtual && !isCurrent
+
+              const FEATURE_LABELS: Record<string, string> = {
+                relatorio_periodico: 'Relatório periódico',
+                cupons_reativacao: 'Cupons de reativação',
+                alertas_automaticos: 'Alertas automáticos',
+                exportacao_pdf_excel: 'Exportação PDF/Excel',
+                painel_central_rede: 'Painel central da rede',
+              }
+              const SUPORTE_LABEL: Record<string, string> = {
+                chat: 'Suporte por chat',
+                prioritario: 'Suporte prioritário',
+                gerente_dedicado: 'Gerente de conta dedicado',
+              }
+
+              return (
+                <div
+                  key={p.slug}
+                  className={`rounded-xl border p-5 flex flex-col gap-3 ${
+                    isCurrent ? 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20' :
+                    p.slug === 'pro' ? 'border-primary ring-1 ring-primary bg-primary/5' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <div>
+                      {isCurrent && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ Plano atual</span>}
+                      {p.slug === 'pro' && !isCurrent && <span className="text-xs font-medium text-primary">⭐ Mais popular</span>}
+                      {isPendingDowngrade && <span className="text-xs font-medium text-blue-600">Agendado</span>}
+                      {!isCurrent && !isPendingDowngrade && p.slug !== 'pro' && <span className="text-xs"> </span>}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-bold text-lg">{p.nome}</p>
+                    <p className="text-sm font-semibold text-muted-foreground">
+                      R$ {Number(p.precoMensal).toFixed(2).replace('.', ',')}
+                      {p.slug === 'rede' ? '/unidade/mês' : '/mês'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Até {p.limiteClientes} clientes{p.slug === 'rede' ? ' por unidade' : ''}
+                    </p>
+                  </div>
+                  <ul className="space-y-1.5 flex-1">
+                    {Object.entries(p.features)
+                      .filter(([k]) => k in FEATURE_LABELS)
+                      .map(([k, v]) => (
+                        <li key={k} className="flex items-start gap-2 text-xs">
+                          {v
+                            ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                            : <XCircle    className="h-3.5 w-3.5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />}
+                          <span className={v ? '' : 'text-muted-foreground/60'}>{FEATURE_LABELS[k]}</span>
+                        </li>
+                      ))}
+                    {p.features.suporte_tipo && (
+                      <li className="flex items-start gap-2 text-xs">
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                        {SUPORTE_LABEL[p.features.suporte_tipo] ?? p.features.suporte_tipo}
+                      </li>
+                    )}
+                    {p.features.descricao && (
+                      <li className="text-xs text-muted-foreground italic mt-1">{p.features.descricao}</li>
+                    )}
+                  </ul>
+                  <div className="mt-auto pt-2">
+                    {isCurrent ? (
+                      <Button size="sm" className="w-full" variant="outline" disabled>Plano atual</Button>
+                    ) : !p.selfServe ? (
+                      <Button size="sm" className="w-full" variant="outline"
+                        onClick={() => { setPlanosAberto(false); setSuporteAberto(true) }}>
+                        <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                        Entrar em contato
+                      </Button>
+                    ) : isPendingDowngrade ? (
+                      <Button size="sm" className="w-full" variant="outline" disabled>
+                        Downgrade agendado
+                      </Button>
+                    ) : isUpgrade ? (
+                      <Button size="sm" className="w-full" onClick={() => handleUpgrade(p.slug)} disabled={aplicandoPlano}>
+                        {aplicandoPlano ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5 mr-1.5" />}
+                        Fazer upgrade
+                      </Button>
+                    ) : isDowngrade ? (
+                      <Button size="sm" className="w-full" variant="outline" onClick={() => handleDowngrade(p.slug)} disabled={aplicandoPlano}>
+                        {aplicandoPlano ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <TrendingDown className="h-3.5 w-3.5 mr-1.5" />}
+                        Fazer downgrade
+                      </Button>
+                    ) : (
+                      <Button size="sm" className="w-full" onClick={() => handleUpgrade(p.slug)} disabled={aplicandoPlano}>
+                        Selecionar plano
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <ul className="space-y-1.5 flex-1">
-                  {plano.recursos.map(r => (
-                    <li key={r} className="flex items-start gap-2 text-xs">
-                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+              )
+            })}
           </div>
-          <div className="flex justify-center mt-4">
-            <Button onClick={() => { setPlanosAberto(false); setSuporteAberto(true) }}>
-              <MessageCircle className="h-4 w-4 mr-2" />
-              Falar com a equipe
-            </Button>
-          </div>
+          <p className="text-xs text-center text-muted-foreground mt-2">
+            Upgrade: aplicado imediatamente, novo valor na próxima cobrança MP. Downgrade: efetivo no próximo vencimento.
+          </p>
         </DialogContent>
       </Dialog>
 

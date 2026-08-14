@@ -27,6 +27,12 @@ interface Usuario {
   ativo: boolean
 }
 
+interface PlanoCatalogo {
+  slug: string
+  nome: string
+  precoMensal: number
+}
+
 interface LojaDetalhe {
   id: string
   nome: string
@@ -34,6 +40,7 @@ interface LojaDetalhe {
   slug: string
   ativa: boolean
   plano: string
+  planoSlug: string | null
   statusAssinatura: string
   valorMensalidade: number | null
   proximoVencimento: string | null
@@ -78,8 +85,16 @@ export default function LojaDetalhePage() {
   const [resetSenha, setResetSenha] = useState<SenhaReset | null>(null)
   const [pagamentos, setPagamentos] = useState<PagamentoAdmin[]>([])
 
-  const [form, setForm] = useState({
+  const [planosCatalogo, setPlanosCatalogo] = useState<PlanoCatalogo[]>([])
+  const [form, setForm] = useState<{
+    plano: string
+    planoSlug: string | null
+    statusAssinatura: string
+    valorMensalidade: string
+    proximoVencimento: string
+  }>({
     plano: '',
+    planoSlug: null,
     statusAssinatura: '',
     valorMensalidade: '',
     proximoVencimento: '',
@@ -89,11 +104,14 @@ export default function LojaDetalhePage() {
     Promise.all([
       api.get(`/admin/lojas/${id}`),
       api.get(`/admin/lojas/${id}/pagamentos`).catch(() => ({ data: [] })),
-    ]).then(([lojaRes, pagtosRes]) => {
+      api.get('/planos/catalogo').catch(() => ({ data: [] })),
+    ]).then(([lojaRes, pagtosRes, planosRes]) => {
       setLoja(lojaRes.data)
       setPagamentos(pagtosRes.data)
+      setPlanosCatalogo(planosRes.data)
       setForm({
         plano: lojaRes.data.plano ?? '',
+        planoSlug: lojaRes.data.planoSlug ?? null,
         statusAssinatura: lojaRes.data.statusAssinatura ?? 'ativa',
         valorMensalidade: lojaRes.data.valorMensalidade != null ? String(lojaRes.data.valorMensalidade) : '',
         proximoVencimento: lojaRes.data.proximoVencimento
@@ -110,6 +128,7 @@ export default function LojaDetalhePage() {
     try {
       await api.patch(`/admin/lojas/${id}`, {
         plano: form.plano || undefined,
+        planoSlug: form.planoSlug || null,
         statusAssinatura: form.statusAssinatura || undefined,
         valorMensalidade: form.valorMensalidade ? Number(form.valorMensalidade) : null,
         proximoVencimento: form.proximoVencimento || null,
@@ -226,12 +245,35 @@ export default function LojaDetalhePage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-xs">Plano</Label>
-                  <Input
-                    value={form.plano}
-                    onChange={e => setForm(f => ({ ...f, plano: e.target.value }))}
-                    placeholder="ex: mensal"
-                  />
+                  <Label className="text-xs">Plano do catálogo</Label>
+                  <Select
+                    value={form.planoSlug || '__custom__'}
+                    onValueChange={v => {
+                      const slug: string | null = v === '__custom__' ? null : v
+                      const plano = slug ? planosCatalogo.find(p => p.slug === slug) : undefined
+                      setForm(f => ({
+                        ...f,
+                        planoSlug: slug,
+                        // Preenche preço automaticamente para Starter e Pro (self_serve)
+                        valorMensalidade: plano && slug !== 'rede'
+                          ? String(plano.precoMensal)
+                          : f.valorMensalidade,
+                      }))
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Customizado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__custom__">Customizado / Legado</SelectItem>
+                      {planosCatalogo.map(p => (
+                        <SelectItem key={p.slug} value={p.slug}>
+                          {p.nome} — R$ {Number(p.precoMensal).toFixed(2).replace('.', ',')}
+                          {p.slug === 'rede' ? '/unidade' : '/mês'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Status</Label>
@@ -258,6 +300,9 @@ export default function LojaDetalhePage() {
                     onChange={e => setForm(f => ({ ...f, valorMensalidade: e.target.value }))}
                     placeholder="0.00"
                   />
+                  {form.planoSlug != null && form.planoSlug !== '' && form.planoSlug !== 'rede' && (
+                    <p className="text-[11px] text-muted-foreground">Preenchido automaticamente pelo catálogo. Pode ser editado para negociações.</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Próximo vencimento</Label>
