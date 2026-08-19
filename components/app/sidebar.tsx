@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   ShieldCheck,
   BellOff,
+  Clock,
   HelpCircle,
   CreditCard,
 } from 'lucide-react'
@@ -31,6 +32,7 @@ const nav = [
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/ciclos', label: 'Ciclos de Recompra', icon: RefreshCw },
   { href: '/represados', label: 'Lembretes Represados', icon: BellOff },
+  { href: '/adiados', label: 'Adiados pelo Cliente', icon: Clock },
   { href: '/pedidos', label: 'Pedidos', icon: ShoppingBag },
   { href: '/mensagens', label: 'Mensagens', icon: MessageSquare },
   { href: '/fluxo', label: 'Fluxo de Conversa', icon: GitBranch },
