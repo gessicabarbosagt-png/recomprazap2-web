@@ -7,14 +7,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { MessageCircle, CalendarDays, ExternalLink, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
+  const [suporteAberto, setSuporteAberto] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -38,7 +40,7 @@ export default function LoginPage() {
           <CardTitle className="text-2xl">RecompraZap</CardTitle>
           <CardDescription>Entre no painel do lojista</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">E-mail</Label>
@@ -68,8 +70,66 @@ export default function LoginPage() {
               Entrar
             </Button>
           </form>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setSuporteAberto(true)}
+              className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+            >
+              Esqueci minha senha
+            </button>
+          </div>
+
+          <p className="text-xs text-muted-foreground/60 text-center leading-relaxed">
+            Foi desconectado sem motivo aparente? Isso pode acontecer por segurança.{' '}
+            Redefina sua senha acima ou{' '}
+            <button
+              type="button"
+              onClick={() => setSuporteAberto(true)}
+              className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors"
+            >
+              fale com o suporte
+            </button>
+            .
+          </p>
         </CardContent>
       </Card>
+
+      <Dialog open={suporteAberto} onOpenChange={setSuporteAberto}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Como podemos ajudar?</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <a href="https://wa.me/5511983202160" target="_blank" rel="noopener noreferrer">
+              <div className="flex flex-col items-center gap-3 p-6 rounded-lg border hover:bg-accent transition-colors cursor-pointer text-center">
+                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
+                  <MessageCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Falar no WhatsApp</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Resposta rápida</p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+            </a>
+
+            <a href="https://calendly.com/gessicabarbosa-gt" target="_blank" rel="noopener noreferrer">
+              <div className="flex flex-col items-center gap-3 p-6 rounded-lg border hover:bg-accent transition-colors cursor-pointer text-center">
+                <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
+                  <CalendarDays className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Agendar demonstração</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Conheça mais</p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+            </a>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
