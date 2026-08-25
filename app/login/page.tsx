@@ -84,13 +84,14 @@ export default function LoginPage() {
           <p className="text-xs text-muted-foreground/60 text-center leading-relaxed">
             Foi desconectado sem motivo aparente? Isso pode acontecer por segurança.{' '}
             Redefina sua senha acima ou{' '}
-            <button
-              type="button"
-              onClick={() => setSuporteAberto(true)}
+            <a
+              href="https://wa.me/5511983202160"
+              target="_blank"
+              rel="noopener noreferrer"
               className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors"
             >
               fale com o suporte
-            </button>
+            </a>
             .
           </p>
         </CardContent>
