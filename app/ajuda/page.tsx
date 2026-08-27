@@ -54,6 +54,23 @@ export default function AjudaPage() {
               </CardContent>
             </Card>
           </Link>
+
+          {/* Política de Privacidade */}
+          <Link href="/privacidade">
+            <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">Política de Privacidade</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Saiba como coletamos, usamos e protegemos seus dados, em conformidade com a LGPD.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </div>
 

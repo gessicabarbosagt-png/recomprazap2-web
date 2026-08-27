@@ -17,16 +17,17 @@ export default function TermosPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">Termo de Uso</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">RecompraZap — BeeUp Marketing</p>
+            <h1 className="text-2xl font-bold">Termo de Uso e Prestação de Serviço</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">RecompraZap — Versão 2 — Agosto de 2026</p>
           </div>
         </div>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6 text-foreground">
           <p className="text-muted-foreground text-sm">
-            Este documento estabelece as condições de uso da plataforma RecompraZap, prestada por{' '}
-            <strong>BeeUp Marketing</strong> ("BeeUp", "nós") à loja contratante ("Cliente"). Ao contratar o serviço, o
-            Cliente declara ter lido e concordado com os termos abaixo.
+            Este documento estabelece as condições de uso da plataforma RecompraZap ("RecompraZap", "nós"), de
+            titularidade de <strong>Géssica Barbosa dos Santos</strong>, inscrita no CNPJ sob o nº 48.642.472/0001-74,
+            à loja contratante ("Cliente"). Ao contratar o serviço, o Cliente declara ter lido e concordado com os
+            termos abaixo.
           </p>
 
           <section>
@@ -41,8 +42,9 @@ export default function TermosPage() {
           <section>
             <h2 className="text-base font-semibold mb-2">2. Responsabilidade sobre o WhatsApp</h2>
             <p className="text-sm text-muted-foreground">
-              O WhatsApp é uma plataforma de terceiros (Meta) e não pertence nem é operada pela BeeUp. A BeeUp não
-              garante disponibilidade, estabilidade ou funcionamento contínuo do WhatsApp, e não se responsabiliza por:
+              O WhatsApp é uma plataforma de terceiros (Meta) e não pertence nem é operada pelo RecompraZap. Não
+              garantimos disponibilidade, estabilidade ou funcionamento contínuo do WhatsApp, e não nos
+              responsabilizamos por:
             </p>
             <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mt-2">
               <li>Bloqueios, banimentos, suspensões ou limitações aplicadas pelo WhatsApp ao número do Cliente;</li>
@@ -50,9 +52,13 @@ export default function TermosPage() {
               <li>Perda de mensagens, atrasos de entrega ou instabilidades causadas pelo WhatsApp.</li>
             </ul>
             <p className="text-sm text-muted-foreground mt-2">
-              O Cliente é responsável por usar o número conectado de forma adequada, evitando envio de mensagens em
-              volume ou frequência que possam ser interpretadas como spam pela Meta. A BeeUp orienta boas práticas de
-              uso, mas a decisão final e o risco de uso do número são do Cliente.
+              O Cliente pode conectar seu número de WhatsApp pessoal/comercial padrão ou, opcionalmente, utilizar a API
+              Oficial do WhatsApp Business (Meta). Recomendamos o uso da API Oficial para maior estabilidade e menor
+              risco de bloqueio, especialmente para envio em volume — essa recomendação também é apresentada de forma
+              visual dentro do painel antes da conexão. A escolha do método de conexão é do Cliente, e o risco de
+              bloqueio ou banimento do número é de sua responsabilidade. O Cliente é responsável por usar o número
+              conectado de forma adequada, evitando envio de mensagens em volume ou frequência que possam ser
+              interpretadas como spam pela Meta.
             </p>
           </section>
 
@@ -60,10 +66,10 @@ export default function TermosPage() {
             <h2 className="text-base font-semibold mb-2">3. Pagamento</h2>
             <p className="text-sm text-muted-foreground">
               O valor da mensalidade e a data de vencimento são acordados individualmente com cada Cliente e informados
-              no ato da contratação. O pagamento é processado por fora da plataforma (ex: Pix), conforme combinado.
+              no ato da contratação. O pagamento é processado via Mercado Pago (Pix ou cartão de crédito recorrente).
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              Em caso de atraso no pagamento, a BeeUp enviará avisos diários ao Cliente. Caso o pagamento não seja
+              Em caso de atraso no pagamento, enviaremos avisos diários ao Cliente. Caso o pagamento não seja
               regularizado, o acesso à plataforma poderá ser suspenso até a quitação do valor devido, sem prejuízo dos
               lembretes e mensagens já processados até o momento da suspensão.
             </p>
@@ -79,8 +85,9 @@ export default function TermosPage() {
             <p className="text-sm text-muted-foreground mt-2">
               Independentemente da fidelidade contratada, o cancelamento deve ser solicitado com no mínimo 30 (trinta)
               dias de antecedência à data desejada de encerramento, por escrito (WhatsApp, e-mail ou outro meio
-              combinado). Cancelamentos solicitados antes do fim do período de fidelidade poderão estar sujeitos a
-              cobrança proporcional ao período restante, conforme acordado na contratação.
+              combinado), ou diretamente pelo painel, na seção "Meu Plano". Cancelamentos solicitados antes do fim do
+              período de fidelidade poderão estar sujeitos a cobrança proporcional ao período restante, conforme acordado
+              na contratação.
             </p>
           </section>
 
@@ -92,31 +99,41 @@ export default function TermosPage() {
               recebimento de mensagens via WhatsApp.
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              A BeeUp trata esses dados exclusivamente para a prestação do serviço contratado, não os compartilha com
-              terceiros para fins alheios ao RecompraZap, e adota medidas razoáveis de segurança para protegê-los.
+              Tratamos esses dados exclusivamente para a prestação do serviço contratado, não os compartilhamos com
+              terceiros para fins alheios ao RecompraZap, e adotamos medidas de segurança para protegê-los, conforme
+              detalhado em nossa Política de Privacidade.
             </p>
           </section>
 
           <section>
             <h2 className="text-base font-semibold mb-2">6. Limitação de responsabilidade</h2>
             <p className="text-sm text-muted-foreground">
-              A BeeUp se compromete a manter a plataforma em funcionamento e a corrigir falhas técnicas identificadas
-              dentro de prazo razoável. A BeeUp não se responsabiliza por perdas de faturamento, oportunidades
-              comerciais ou danos indiretos decorrentes de indisponibilidade temporária do serviço, falhas do
-              WhatsApp/Meta, ou uso inadequado da plataforma pelo Cliente.
+              Nos comprometemos a manter a plataforma em funcionamento e a corrigir falhas técnicas identificadas dentro
+              de prazo razoável. Não nos responsabilizamos por perdas de faturamento, oportunidades comerciais ou danos
+              indiretos decorrentes de indisponibilidade temporária do serviço, falhas do WhatsApp/Meta, ou uso
+              inadequado da plataforma pelo Cliente.
             </p>
           </section>
 
           <section>
             <h2 className="text-base font-semibold mb-2">7. Alterações neste termo</h2>
             <p className="text-sm text-muted-foreground">
-              Este termo pode ser atualizado pela BeeUp para refletir melhorias ou mudanças no serviço. Alterações
-              relevantes serão comunicadas ao Cliente com antecedência razoável.
+              Este termo pode ser atualizado para refletir melhorias ou mudanças no serviço. Alterações relevantes serão
+              comunicadas ao Cliente com antecedência razoável.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold mb-2">8. Política de Privacidade</h2>
+            <p className="text-sm text-muted-foreground">
+              O tratamento de dados pessoais realizado pelo RecompraZap é detalhado em documento próprio — a Política de
+              Privacidade — que é parte integrante deste Termo e está disponível na Central de Ajuda do painel.
             </p>
           </section>
 
           <div className="border-t pt-4 mt-6 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground">BeeUp Marketing</p>
+            <p className="font-medium text-foreground">Géssica Barbosa dos Santos</p>
+            <p>CNPJ 48.642.472/0001-74 — RecompraZap</p>
             <div className="flex gap-16 mt-3">
               <div>
                 <p>Prestadora</p>
