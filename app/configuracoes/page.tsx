@@ -19,6 +19,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react'
 import { Loader2, Wifi, WifiOff, RefreshCw, Eye, User, AlertTriangle, Megaphone, CheckCircle2, XCircle, Power } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 type Status = 'conectado' | 'desconectado' | 'aguardando'
 type Aba = 'whatsapp' | 'perfil' | 'meta-ads'
@@ -514,6 +515,47 @@ export default function ConfiguracoesPage() {
 
         {aba === 'whatsapp' && (
         <div className="space-y-8">
+
+        {/* ── Aviso educativo: WhatsApp normal vs API Oficial ──── */}
+        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              Antes de conectar, saiba a diferença
+            </p>
+          </div>
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            Você pode conectar seu WhatsApp normal (o mesmo que já usa no celular) ou a API Oficial do WhatsApp
+            Business, da Meta.
+          </p>
+          <div className="space-y-2">
+            <div className="flex gap-2 text-sm text-amber-800 dark:text-amber-300">
+              <span>📱</span>
+              <span>
+                <strong>WhatsApp normal</strong> — mais simples de conectar, mas a Meta pode limitar ou bloquear
+                números que enviam muitas mensagens automáticas em pouco tempo.
+              </span>
+            </div>
+            <div className="flex gap-2 text-sm text-amber-800 dark:text-amber-300">
+              <span>✅</span>
+              <span>
+                <strong>API Oficial</strong> — mais estável para envio em volume, com menor risco de bloqueio, mas
+                exige configuração adicional pela Meta.
+              </span>
+            </div>
+          </div>
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            Recomendamos a API Oficial para lojas com muitos clientes ativos. O risco de bloqueio do número
+            escolhido é de responsabilidade do lojista, conforme nosso{' '}
+            <Link
+              href="/termos"
+              className="underline underline-offset-2 font-medium hover:opacity-80 transition-opacity"
+            >
+              Termo de Uso
+            </Link>
+            .
+          </p>
+        </div>
 
         {/* ── Conexão WhatsApp ──────────────────────────────────── */}
         <Card>
