@@ -61,6 +61,10 @@ export default function CiclosPage() {
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [dispararOpen, setDispararOpen] = useState(false)
   const [dispararAll, setDispararAll] = useState(false)
+  const [resultadoDisparo, setResultadoDisparo] = useState<{
+    sucesso: number; falhas: number
+    resultados: { id: string; clienteNome: string; ok: boolean; erro?: string }[]
+  } | null>(null)
 
   const vencidos = ciclos.filter(
     (c) => c.ativo && c.proximaNotificacao && new Date(c.proximaNotificacao) <= new Date(),
@@ -166,14 +170,19 @@ export default function CiclosPage() {
     setDispararAll(true)
     try {
       const res = await api.post('/ciclos/disparar-todos')
-      toast.success(res.data.mensagem || `${res.data.total} lembretes em disparo`)
-      setDispararOpen(false)
-      setTimeout(load, 1000)
+      const data = res.data
+      setResultadoDisparo({ sucesso: data.sucesso, falhas: data.falhas, resultados: data.resultados })
+      await load()
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Erro ao disparar lembretes')
     } finally {
       setDispararAll(false)
     }
+  }
+
+  function fecharResultado() {
+    setResultadoDisparo(null)
+    setDispararOpen(false)
   }
 
   function formatDate(d?: string) {
@@ -204,7 +213,7 @@ export default function CiclosPage() {
             {vencidos.length > 0 && (
               <Button variant="outline" onClick={() => setDispararOpen(true)}>
                 <SendHorizonal className="h-4 w-4 mr-2" />
-                Disparar todos ({vencidos.length})
+                Enviar todos vencidos hoje ({vencidos.length})
               </Button>
             )}
             <Button onClick={openCreate}>
@@ -383,29 +392,65 @@ export default function CiclosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: disparar todos */}
-      <Dialog open={dispararOpen} onOpenChange={setDispararOpen}>
+      {/* Modal: enviar todos vencidos */}
+      <Dialog open={dispararOpen} onOpenChange={(v) => { if (!dispararAll) { setDispararOpen(v); if (!v) setResultadoDisparo(null) } }}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Disparar lembretes em massa</DialogTitle>
-            <DialogDescription>
-              {vencidos.length === 0
-                ? 'Nenhum ciclo vencido no momento.'
-                : `${vencidos.length} ciclo${vencidos.length > 1 ? 's' : ''} vencido${vencidos.length > 1 ? 's' : ''} receberá${vencidos.length > 1 ? 'ão' : ''} um lembrete agora.`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2 text-sm text-muted-foreground">
-            As mensagens são enviadas com <strong>5 segundos de intervalo</strong> entre cada uma para evitar bloqueio do WhatsApp.
-            O processo roda em segundo plano — você pode fechar esta janela.
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDispararOpen(false)}>Cancelar</Button>
-            <Button onClick={handleDispararTodos} disabled={dispararAll || vencidos.length === 0}>
-              {dispararAll
-                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Disparando...</>
-                : <><SendHorizonal className="mr-2 h-4 w-4" />Disparar {vencidos.length} lembrete{vencidos.length !== 1 ? 's' : ''}</>}
-            </Button>
-          </DialogFooter>
+          {resultadoDisparo ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Resultado do envio em massa</DialogTitle>
+                <DialogDescription>
+                  {resultadoDisparo.falhas === 0
+                    ? `${resultadoDisparo.sucesso} lembrete${resultadoDisparo.sucesso !== 1 ? 's' : ''} enviado${resultadoDisparo.sucesso !== 1 ? 's' : ''} com sucesso.`
+                    : `${resultadoDisparo.sucesso} enviado${resultadoDisparo.sucesso !== 1 ? 's' : ''} com sucesso, ${resultadoDisparo.falhas} falhou${resultadoDisparo.falhas !== 1 ? 'am' : ''}.`}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-2 space-y-1 max-h-60 overflow-y-auto">
+                {resultadoDisparo.resultados.map((r) => (
+                  <div key={r.id} className="flex items-start gap-2 text-sm">
+                    {r.ok
+                      ? <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                      : <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />}
+                    <span>
+                      <span className="font-medium">{r.clienteNome}</span>
+                      {!r.ok && r.erro && (
+                        <span className="text-muted-foreground ml-1">— {r.erro}</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button onClick={fecharResultado}>Fechar</Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Enviar lembretes em massa</DialogTitle>
+                <DialogDescription>
+                  Você está prestes a enviar {vencidos.length} lembrete{vencidos.length !== 1 ? 's' : ''} agora. Confirmar?
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-2 space-y-1 max-h-48 overflow-y-auto">
+                {vencidos.map((c) => (
+                  <div key={c.id} className="text-sm flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground shrink-0" />
+                    <span>{c.clienteNome}</span>
+                    <span className="text-muted-foreground text-xs">— {c.produtoNome}</span>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDispararOpen(false)} disabled={dispararAll}>Cancelar</Button>
+                <Button onClick={handleDispararTodos} disabled={dispararAll || vencidos.length === 0}>
+                  {dispararAll
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+                    : <><SendHorizonal className="mr-2 h-4 w-4" />Enviar {vencidos.length} lembrete{vencidos.length !== 1 ? 's' : ''}</>}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </LayoutShell>
