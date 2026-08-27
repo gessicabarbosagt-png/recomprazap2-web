@@ -66,8 +66,10 @@ export default function CiclosPage() {
     resultados: { id: string; clienteNome: string; ok: boolean; erro?: string }[]
   } | null>(null)
 
+  const hojeISO = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+
   const vencidos = ciclos.filter(
-    (c) => c.ativo && c.proximaNotificacao && new Date(c.proximaNotificacao) <= new Date(),
+    (c) => c.ativo && c.proximaNotificacao && c.proximaNotificacao.slice(0, 10) <= hojeISO,
   )
 
   async function load() {
@@ -194,7 +196,10 @@ export default function CiclosPage() {
 
   function proximaBadge(data?: string) {
     if (!data) return <span className="text-muted-foreground">—</span>
-    const diff = Math.ceil((new Date(data).getTime() - Date.now()) / 86400000)
+    const dataISO = data.slice(0, 10) // YYYY-MM-DD sem a parte de hora
+    const diff = Math.round(
+      (new Date(dataISO).getTime() - new Date(hojeISO).getTime()) / 86400000,
+    )
     if (diff < 0) return <Badge variant="destructive">Vencido</Badge>
     if (diff === 0) return <Badge variant="destructive">Hoje</Badge>
     if (diff <= 3) return <Badge variant="outline" className="border-orange-400 text-orange-500">Em {diff}d</Badge>
