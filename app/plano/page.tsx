@@ -11,14 +11,13 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import {
   CreditCard, QrCode, CheckCircle, XCircle, Clock, Loader2,
   Copy, RefreshCw, AlertTriangle, ShieldCheck, MessageCircle, CalendarDays, ExternalLink,
-  Star, Users, TrendingUp, TrendingDown,
+  Star, Users, TrendingUp, TrendingDown, DollarSign, Crown, ArrowRight, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
@@ -102,20 +101,30 @@ function fmtDataCurta(d: string | null) {
   catch { return d }
 }
 
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  ativa:       { label: 'Ativa',        className: 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
-  inadimplente:{ label: 'Inadimplente', className: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
-  cancelada:   { label: 'Cancelada',    className: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800' },
+const PAGTO_STATUS: Record<string, { label: string; badgeCn: string; icon: React.ReactNode }> = {
+  aprovado: {
+    label: 'Pago',
+    badgeCn: 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+    icon: <CheckCircle className="h-3.5 w-3.5" />,
+  },
+  pendente: {
+    label: 'Pendente',
+    badgeCn: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+    icon: <Clock className="h-3.5 w-3.5" />,
+  },
+  recusado: {
+    label: 'Falhou',
+    badgeCn: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800',
+    icon: <XCircle className="h-3.5 w-3.5" />,
+  },
+  cancelado: {
+    label: 'Cancelado',
+    badgeCn: 'bg-muted text-muted-foreground border-border',
+    icon: <XCircle className="h-3.5 w-3.5" />,
+  },
 }
 
-const PAGTO_STATUS: Record<string, { label: string; icon: React.ReactNode }> = {
-  aprovado: { label: 'Aprovado',   icon: <CheckCircle className="h-3.5 w-3.5 text-emerald-600" /> },
-  pendente: { label: 'Pendente',   icon: <Clock        className="h-3.5 w-3.5 text-amber-500" /> },
-  recusado: { label: 'Recusado',   icon: <XCircle      className="h-3.5 w-3.5 text-destructive" /> },
-  cancelado:{ label: 'Cancelado',  icon: <XCircle      className="h-3.5 w-3.5 text-muted-foreground" /> },
-}
-
-// ── Componente do CardForm do Mercado Pago ────────────────────────────────────
+// ── CardForm do Mercado Pago ────────────────────────────────────────────────
 
 interface CardFormProps {
   valorMensalidade: number
@@ -134,7 +143,6 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
   const mpPublicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY ?? ''
 
   useEffect(() => {
-    // Detecta quando o SDK já foi carregado (pode ter sido carregado antes)
     if ((window as any).MercadoPago) setSdkPronto(true)
   }, [])
 
@@ -148,15 +156,15 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
       iframe: false,
       form: {
         id: 'mp-card-form',
-        cardNumber:         { id: 'mp-card-number',      placeholder: '0000 0000 0000 0000' },
-        expirationDate:     { id: 'mp-expiration-date',  placeholder: 'MM/AA' },
-        securityCode:       { id: 'mp-security-code',    placeholder: 'CVV' },
-        cardholderName:     { id: 'mp-cardholder-name',  placeholder: 'Nome no cartão' },
-        issuer:             { id: 'mp-issuer',            placeholder: 'Banco' },
-        installments:       { id: 'mp-installments' },
-        identificationType: { id: 'mp-doc-type' },
-        identificationNumber: { id: 'mp-doc-number',     placeholder: '000.000.000-00' },
-        cardholderEmail:    { id: 'mp-cardholder-email', placeholder: 'e-mail' },
+        cardNumber:           { id: 'mp-card-number',      placeholder: '0000 0000 0000 0000' },
+        expirationDate:       { id: 'mp-expiration-date',  placeholder: 'MM/AA' },
+        securityCode:         { id: 'mp-security-code',    placeholder: 'CVV' },
+        cardholderName:       { id: 'mp-cardholder-name',  placeholder: 'Nome no cartão' },
+        issuer:               { id: 'mp-issuer',            placeholder: 'Banco' },
+        installments:         { id: 'mp-installments' },
+        identificationType:   { id: 'mp-doc-type' },
+        identificationNumber: { id: 'mp-doc-number',       placeholder: '000.000.000-00' },
+        cardholderEmail:      { id: 'mp-cardholder-email', placeholder: 'e-mail' },
       },
       callbacks: {
         onFormMounted: (error: any) => {
@@ -177,9 +185,7 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
     })
     setMontado(true)
 
-    return () => {
-      cardFormRef.current?.unmount?.()
-    }
+    return () => { cardFormRef.current?.unmount?.() }
   }, [sdkPronto, montado, mpPublicKey, valorMensalidade, onToken, emailCartao])
 
   return (
@@ -193,63 +199,41 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
       <form id="mp-card-form" ref={formRef} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="mp-card-number">Número do cartão</Label>
-          <div
-            id="mp-card-number"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
+          <div id="mp-card-number" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="mp-expiration-date">Validade</Label>
-            <div
-              id="mp-expiration-date"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
+            <div id="mp-expiration-date" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="mp-security-code">CVV</Label>
-            <div
-              id="mp-security-code"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
+            <div id="mp-security-code" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
           </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="mp-cardholder-name">Nome no cartão</Label>
-          <div
-            id="mp-cardholder-name"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
+          <div id="mp-cardholder-name" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="mp-doc-type">Tipo doc.</Label>
-            <select
-              id="mp-doc-type"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none"
-            />
+            <select id="mp-doc-type" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="mp-doc-number">CPF / CNPJ</Label>
-            <div
-              id="mp-doc-number"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
+            <div id="mp-doc-number" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
           </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="mp-cardholder-email">E-mail (para recibos)</Label>
-          <div
-            id="mp-cardholder-email"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
+          <div id="mp-cardholder-email" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
         </div>
 
-        {/* Campos ocultos obrigatórios pelo SDK */}
         <select id="mp-issuer"       className="hidden" />
         <select id="mp-installments" className="hidden" />
 
@@ -264,7 +248,7 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
 
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5" />
-          Seus dados de cartão são processados com segurança pelo Mercado Pago. Não armazenamos o número do cartão.
+          Seus dados de cartão são processados com segurança pelo Mercado Pago.
         </p>
       </form>
     </>
@@ -274,6 +258,8 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
 // ── Página principal ──────────────────────────────────────────────────────────
 
 type View = 'loading' | 'plano' | 'add-card' | 'pix'
+
+const PAGAMENTOS_VISIVEIS = 5
 
 export default function PlanoPage() {
   const [statusPlano, setStatusPlano] = useState<StatusPlano | null>(null)
@@ -288,6 +274,7 @@ export default function PlanoPage() {
   const [catalogo, setCatalogo] = useState<PlanoCatalogo[]>([])
   const [planoLoja, setPlanoLoja] = useState<PlanoLoja | null>(null)
   const [aplicandoPlano, setAplicandoPlano] = useState(false)
+  const [verTodosPagamentos, setVerTodosPagamentos] = useState(false)
 
   const carregarDados = useCallback(async () => {
     try {
@@ -311,7 +298,6 @@ export default function PlanoPage() {
 
   useEffect(() => { carregarDados() }, [carregarDados])
 
-  // Mostra pix ativo se houver um pendente na lista
   useEffect(() => {
     const pixPendente = pagamentos.find(
       p => p.tipo === 'pix' && p.status === 'pendente' && p.pixExpiraEm && new Date(p.pixExpiraEm) > new Date()
@@ -369,9 +355,7 @@ export default function PlanoPage() {
     setProcessando(true)
     try {
       const ehTroca = !!statusPlano?.mpSubscriptionId
-      const endpoint = ehTroca
-        ? '/pagamentos/assinatura/cartao/trocar'
-        : '/pagamentos/assinatura/cartao'
+      const endpoint = ehTroca ? '/pagamentos/assinatura/cartao/trocar' : '/pagamentos/assinatura/cartao'
       await api.post(endpoint, { cardToken: token, payerEmail: email, lastFour })
       toast.success(ehTroca ? 'Cartão atualizado com sucesso!' : 'Assinatura criada com sucesso!')
       await carregarDados()
@@ -416,103 +400,91 @@ export default function PlanoPage() {
     toast.success('Código copiado!')
   }
 
+  // ── Loading ──────────────────────────────────────────────────────────────────
+
   if (carregando || view === 'loading') {
     return (
       <LayoutShell>
-        <div className="max-w-2xl space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
+        <div className="max-w-5xl space-y-6">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <Skeleton className="lg:col-span-3 h-52 rounded-2xl" />
+            <Skeleton className="lg:col-span-2 h-52 rounded-2xl" />
+          </div>
+          <Skeleton className="h-36 rounded-2xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Skeleton className="h-48 rounded-2xl" />
+            <Skeleton className="h-48 rounded-2xl" />
+          </div>
         </div>
       </LayoutShell>
     )
   }
 
   const plano = statusPlano!
-  const statusBadge = STATUS_BADGE[plano.statusAssinatura] ?? STATUS_BADGE['cancelada']
   const valorMensalidade = plano.valorMensalidade ? Number(plano.valorMensalidade) : 0
+
+  const pct = planoLoja?.limiteClientes
+    ? Math.min(100, (planoLoja.totalClientes / planoLoja.limiteClientes) * 100)
+    : 0
+  const restantes = planoLoja?.limiteClientes != null
+    ? planoLoja.limiteClientes - planoLoja.totalClientes
+    : null
+
+  const statusInfo = {
+    ativa:        { label: 'Plano ativo',    cn: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
+    inadimplente: { label: 'Inadimplente',   cn: 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
+    cancelada:    { label: 'Cancelado',      cn: 'bg-muted text-muted-foreground border-border' },
+  }[plano.statusAssinatura] ?? { label: 'Cancelado', cn: 'bg-muted text-muted-foreground border-border' }
+
+  const pagamentosVisiveis = verTodosPagamentos ? pagamentos : pagamentos.slice(0, PAGAMENTOS_VISIVEIS)
+
+  const metodoAtivo: 'card' | 'pix' | null = plano.mpPaymentMethod
 
   return (
     <LayoutShell>
-      <div className="max-w-2xl space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Meu Plano</h1>
-            <p className="text-sm text-muted-foreground mt-1">Gerencie sua assinatura e histórico de pagamentos</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => setPlanosAberto(true)}>
-            <Star className="h-4 w-4 mr-2" />
-            Ver opções de plano
-          </Button>
+      <div className="max-w-5xl space-y-6">
+
+        {/* ── Cabeçalho ─────────────────────────────────────────────────── */}
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Meu Plano</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gerencie sua assinatura, pagamentos e acompanhe o uso da sua conta.
+          </p>
         </div>
 
         {/* Banner: downgrade pendente */}
         {planoLoja?.planoPendente && (
-          <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 flex items-start justify-between gap-3">
+          <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
-              <TrendingDown className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <TrendingDown className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Downgrade agendado</p>
                 <p className="text-xs text-blue-800 dark:text-blue-400 mt-0.5">
-                  Em {fmtData(planoLoja.planoPendente.efetivaDm)}, seu plano mudará para <strong>{planoLoja.planoPendente.nome}</strong>{' '}
+                  Em {fmtData(planoLoja.planoPendente.efetivaDm)}, seu plano mudará para{' '}
+                  <strong>{planoLoja.planoPendente.nome}</strong>{' '}
                   (R$ {Number(planoLoja.planoPendente.precoMensal).toFixed(2).replace('.', ',')}/mês).
                 </p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" className="text-blue-700 dark:text-blue-400 flex-shrink-0 text-xs" onClick={handleCancelarDowngradePendente}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-blue-700 dark:text-blue-400 shrink-0 text-xs"
+              onClick={handleCancelarDowngradePendente}
+            >
               Cancelar
             </Button>
           </div>
         )}
 
-        {/* Card: plano atual + uso de clientes */}
-        {planoLoja && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Star className="h-4 w-4 text-primary" />
-                {planoLoja.planoNome}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {planoLoja.limiteClientes != null && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Users className="h-3.5 w-3.5" />
-                      Clientes cadastrados
-                    </span>
-                    <span className={planoLoja.totalClientes >= planoLoja.limiteClientes ? 'text-destructive font-medium' : 'font-medium'}>
-                      {planoLoja.totalClientes} / {planoLoja.limiteClientes}
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        planoLoja.totalClientes / planoLoja.limiteClientes >= 0.9
-                          ? 'bg-destructive'
-                          : planoLoja.totalClientes / planoLoja.limiteClientes >= 0.7
-                          ? 'bg-amber-500'
-                          : 'bg-primary'
-                      }`}
-                      style={{ width: `${Math.min(100, (planoLoja.totalClientes / planoLoja.limiteClientes) * 100)}%` }}
-                    />
-                  </div>
-                  {planoLoja.totalClientes >= planoLoja.limiteClientes && (
-                    <p className="text-xs text-destructive">
-                      Limite atingido. Faça upgrade para cadastrar mais clientes.
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Banner inadimplente */}
         {plano.statusAssinatura === 'inadimplente' && (
-          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-amber-900 dark:text-amber-300">Pagamento pendente</p>
               <p className="text-xs text-amber-800 dark:text-amber-400 mt-0.5">
@@ -522,247 +494,371 @@ export default function PlanoPage() {
           </div>
         )}
 
-        {/* Status do plano */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <CardTitle className="text-base">Resumo do plano</CardTitle>
-              <Badge className={`${statusBadge.className} gap-1`}>
-                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                {statusBadge.label}
-              </Badge>
+        {/* ── Linha 1: Hero + Uso ────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+          {/* Card hero — plano atual (3/5) */}
+          <div
+            className="lg:col-span-3 relative overflow-hidden rounded-2xl p-6 flex flex-col justify-between min-h-[200px]"
+            style={{
+              background: 'linear-gradient(135deg, #1F4E79 0%, #1a4268 40%, #196b54 80%, #2E9E75 100%)',
+            }}
+          >
+            {/* Ícone decorativo — slot para imagem futura */}
+            <div className="absolute right-4 top-4 opacity-10 pointer-events-none" aria-hidden>
+              <Crown className="h-28 w-28 text-white" />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Valor mensal</span>
-              <span className="font-medium">{fmtValor(plano.valorMensalidade)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Próxima cobrança</span>
-              <span>{fmtData(plano.proximoVencimento)}</span>
-            </div>
-            {plano.mpPaymentMethod && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Método ativo</span>
-                <span className="flex items-center gap-1.5">
-                  {plano.mpPaymentMethod === 'card' ? (
-                    <><CreditCard className="h-3.5 w-3.5" /> Cartão •••• {plano.mpCardLastFour}</>
-                  ) : (
-                    <><QrCode className="h-3.5 w-3.5" /> Pix</>
-                  )}
-                </span>
+
+            <div className="space-y-3 relative z-10">
+              {/* Badge "Seu plano atual" */}
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
+                <Zap className="h-3 w-3" />
+                Seu plano atual
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Ações de pagamento */}
-        {view === 'plano' && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Método de pagamento</CardTitle>
-              <CardDescription>
-                {plano.mpSubscriptionId
-                  ? 'Sua assinatura por cartão está ativa. O Mercado Pago cobra automaticamente todo mês.'
-                  : 'Adicione um cartão para cobrança automática, ou gere um Pix para pagar manualmente.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {plano.mpSubscriptionId ? (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setView('add-card')}
-                  >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Trocar cartão
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 text-destructive hover:text-destructive"
-                    onClick={() => setCancelDialog(true)}
-                  >
-                    Cancelar assinatura
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button
-                    className="flex-1"
-                    onClick={() => setView('add-card')}
-                    disabled={valorMensalidade === 0}
-                  >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Adicionar cartão
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={handleGerarPix}
-                    disabled={processando || valorMensalidade === 0}
-                  >
-                    {processando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <QrCode className="h-4 w-4 mr-2" />}
-                    {pixGerado ? 'Ver Pix pendente' : 'Pagar via Pix'}
-                  </Button>
-                </div>
-              )}
-
-              {!plano.mpSubscriptionId && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-muted-foreground text-xs"
-                  onClick={handleGerarPix}
-                  disabled={processando || valorMensalidade === 0}
-                >
-                  <QrCode className="h-3.5 w-3.5 mr-1.5" />
-                  {pixGerado ? 'Ver QR Code Pix do mês' : 'Ou pague este mês via Pix'}
-                </Button>
-              )}
-
-              {valorMensalidade === 0 && (
-                <p className="text-xs text-muted-foreground text-center pt-1">
-                  Valor da mensalidade não configurado. Entre em contato com o suporte.
+              {/* Nome do plano */}
+              <div>
+                <h2 className="text-3xl font-bold text-white tracking-tight">
+                  {planoLoja?.planoNome ?? 'Plano'}
+                </h2>
+                <p className="text-sm text-white/70 mt-1">
+                  {planoLoja?.limiteClientes != null
+                    ? `Até ${planoLoja.limiteClientes} clientes · ${fmtValor(plano.valorMensalidade)}/mês`
+                    : 'Gerencie sua assinatura abaixo'}
                 </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+              </div>
+            </div>
 
-        {/* Formulário de cartão */}
-        {view === 'add-card' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                {statusPlano?.mpSubscriptionId ? 'Trocar cartão' : 'Adicionar cartão'}
-              </CardTitle>
-              <CardDescription>
-                Mensalidade de {fmtValor(plano.valorMensalidade)} cobrada automaticamente todo mês.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MpCardForm
-                valorMensalidade={valorMensalidade}
-                onToken={handleToken}
-                onCancel={() => setView('plano')}
-                loading={processando}
-              />
-            </CardContent>
-          </Card>
-        )}
+            {/* Botão "Ver opções de plano" */}
+            <div className="relative z-10 mt-6">
+              <Button
+                onClick={() => setPlanosAberto(true)}
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/25 backdrop-blur-sm gap-2"
+                variant="outline"
+              >
+                Ver opções de plano
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
-        {/* QR Code Pix */}
-        {(view === 'pix' || pixGerado) && view !== 'add-card' && pixGerado && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <QrCode className="h-5 w-5" />
-                Pix do mês — {fmtValor(pixGerado.valor)}
-              </CardTitle>
-              <CardDescription>
-                Escaneie o QR Code ou copie o código Pix abaixo. Válido até{' '}
-                <strong>{fmtDataCurta(pixGerado.pixExpiraEm)}</strong>.
-              </CardDescription>
+          {/* Card uso da conta (2/5) */}
+          <Card className="lg:col-span-2 flex flex-col justify-between">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+                <CardTitle className="text-base">Uso da conta</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {pixGerado.pixQrCode ? (
+              {planoLoja?.limiteClientes != null ? (
                 <>
-                  <div className="flex justify-center">
-                    <div className="rounded-xl border bg-white p-4 shadow-sm">
-                      <QRCodeSVG value={pixGerado.pixQrCode} size={200} level="M" />
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Clientes cadastrados</span>
+                      <span className={cn(
+                        'font-semibold',
+                        planoLoja.totalClientes >= planoLoja.limiteClientes ? 'text-destructive' : 'text-foreground',
+                      )}>
+                        {planoLoja.totalClientes} / {planoLoja.limiteClientes}
+                      </span>
                     </div>
+
+                    {/* Barra de progresso */}
+                    <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          pct >= 90 ? 'bg-destructive' : pct >= 70 ? 'bg-amber-500' : 'bg-[#2E9E75]',
+                        )}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">{Math.round(pct)}% utilizado</p>
                   </div>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={pixGerado.pixQrCode}
-                      className="font-mono text-xs"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => copiarCodigo(pixGerado.pixQrCode!)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
+
+                  {/* Caixa informativa */}
+                  <div className={cn(
+                    'rounded-lg px-3 py-2.5 text-xs',
+                    restantes != null && restantes <= 0
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-muted text-muted-foreground',
+                  )}>
+                    {restantes != null && restantes <= 0
+                      ? 'Você atingiu o limite de clientes do seu plano atual. Faça upgrade para continuar.'
+                      : `Você ainda pode cadastrar ${restantes} cliente${restantes !== 1 ? 's' : ''} no seu plano atual!`}
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  QR Code não disponível. Use o código copia-e-cola acima.
-                </p>
+                <p className="text-sm text-muted-foreground">Limite de clientes não definido.</p>
               )}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setView('plano')}
-                >
-                  Voltar
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleGerarPix}
-                  disabled={processando}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Gerar novo Pix
-                </Button>
-              </div>
             </CardContent>
           </Card>
-        )}
+        </div>
 
-        {/* Histórico */}
+        {/* ── Linha 2: Resumo da assinatura (full width) ─────────────────── */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Histórico de pagamentos</CardTitle>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">Resumo da assinatura</CardTitle>
+              <Badge className={cn('gap-1.5 text-xs font-medium', statusInfo.cn)}>
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                {statusInfo.label}
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent>
-            {pagamentos.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">Nenhum pagamento registrado ainda.</p>
-            ) : (
-              <div className="divide-y text-sm">
-                {pagamentos.map(p => (
-                  <div key={p.id} className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-3">
-                      {p.tipo === 'card'
-                        ? <CreditCard className="h-4 w-4 text-muted-foreground" />
-                        : <QrCode     className="h-4 w-4 text-muted-foreground" />}
-                      <div>
-                        <p className="font-medium">{fmtValor(p.valor)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {p.descricao ?? (p.tipo === 'card' ? 'Cartão' : 'Pix')} · {fmtDataCurta(p.criadoEm)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs">
-                      {PAGTO_STATUS[p.status]?.icon}
-                      <span className="text-muted-foreground">{PAGTO_STATUS[p.status]?.label ?? p.status}</span>
-                    </div>
-                  </div>
-                ))}
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Valor mensal */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50">
+                <div className="h-9 w-9 rounded-lg bg-background border flex items-center justify-center shrink-0">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Valor mensal</p>
+                  <p className="text-lg font-bold tracking-tight mt-0.5">{fmtValor(plano.valorMensalidade)}</p>
+                </div>
               </div>
-            )}
+
+              {/* Próxima cobrança */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50">
+                <div className="h-9 w-9 rounded-lg bg-background border flex items-center justify-center shrink-0">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Próxima cobrança</p>
+                  <p className="text-sm font-semibold mt-0.5">{fmtData(plano.proximoVencimento)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Banner informativo */}
+            <div className="rounded-lg border border-blue-100 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2.5 text-xs text-blue-800 dark:text-blue-300">
+              {metodoAtivo === 'pix'
+                ? 'Gere um novo Pix a cada ciclo para manter seu acesso ativo. O pagamento não é automático.'
+                : 'A cobrança é renovada automaticamente todo mês para você não perder o acesso.'}
+            </div>
           </CardContent>
         </Card>
+
+        {/* ── Linha 3: Método de pagamento + Histórico ────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* Card: método de pagamento */}
+          <Card className="flex flex-col">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Método de pagamento</CardTitle>
+              <CardDescription className="text-xs">
+                {plano.mpSubscriptionId
+                  ? 'Assinatura por cartão ativa — cobrada automaticamente pelo Mercado Pago todo mês.'
+                  : 'Escolha como você prefere pagar sua mensalidade.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 flex-1 flex flex-col justify-between">
+
+              {view === 'add-card' ? (
+                <MpCardForm
+                  valorMensalidade={valorMensalidade}
+                  onToken={handleToken}
+                  onCancel={() => setView('plano')}
+                  loading={processando}
+                />
+              ) : view === 'pix' || pixGerado ? (
+                /* QR Code Pix inline */
+                pixGerado && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <QrCode className="h-4 w-4" />
+                      Pix do mês — {fmtValor(pixGerado.valor)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Válido até <strong>{fmtDataCurta(pixGerado.pixExpiraEm)}</strong>.
+                    </p>
+                    {pixGerado.pixQrCode && (
+                      <>
+                        <div className="flex justify-center">
+                          <div className="rounded-xl border bg-white p-3 shadow-sm">
+                            <QRCodeSVG value={pixGerado.pixQrCode} size={160} level="M" />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Input readOnly value={pixGerado.pixQrCode} className="font-mono text-xs" />
+                          <Button variant="outline" size="icon" onClick={() => copiarCodigo(pixGerado.pixQrCode!)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setView('plano')}>
+                        Voltar
+                      </Button>
+                      <Button size="sm" className="flex-1" onClick={handleGerarPix} disabled={processando}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Gerar novo Pix
+                      </Button>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="space-y-4">
+                  {/* Dois cards selecionáveis: Cartão | Pix */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Cartão */}
+                    <button
+                      type="button"
+                      onClick={() => setView('add-card')}
+                      disabled={valorMensalidade === 0}
+                      className={cn(
+                        'relative rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        metodoAtivo === 'card'
+                          ? 'border-[#2E9E75] ring-1 ring-[#2E9E75] bg-[#2E9E75]/5 dark:bg-[#2E9E75]/10'
+                          : 'border-border hover:border-muted-foreground/40',
+                        valorMensalidade === 0 && 'opacity-50 cursor-not-allowed',
+                      )}
+                    >
+                      {metodoAtivo === 'card' && (
+                        <span className="absolute top-2 right-2 h-4 w-4 rounded-full bg-[#2E9E75] flex items-center justify-center">
+                          <CheckCircle className="h-3 w-3 text-white" />
+                        </span>
+                      )}
+                      <CreditCard className="h-5 w-5 mb-2 text-muted-foreground" />
+                      <p className="text-xs font-semibold">Cartão de crédito</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {metodoAtivo === 'card' && plano.mpCardLastFour
+                          ? `•••• ${plano.mpCardLastFour}`
+                          : 'Cobrança automática'}
+                      </p>
+                    </button>
+
+                    {/* Pix */}
+                    <button
+                      type="button"
+                      onClick={handleGerarPix}
+                      disabled={processando || valorMensalidade === 0}
+                      className={cn(
+                        'relative rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        metodoAtivo === 'pix'
+                          ? 'border-[#2E9E75] ring-1 ring-[#2E9E75] bg-[#2E9E75]/5 dark:bg-[#2E9E75]/10'
+                          : 'border-border hover:border-muted-foreground/40',
+                        (processando || valorMensalidade === 0) && 'opacity-50 cursor-not-allowed',
+                      )}
+                    >
+                      {metodoAtivo === 'pix' && (
+                        <span className="absolute top-2 right-2 h-4 w-4 rounded-full bg-[#2E9E75] flex items-center justify-center">
+                          <CheckCircle className="h-3 w-3 text-white" />
+                        </span>
+                      )}
+                      {processando
+                        ? <Loader2 className="h-5 w-5 mb-2 text-muted-foreground animate-spin" />
+                        : <QrCode className="h-5 w-5 mb-2 text-muted-foreground" />}
+                      <p className="text-xs font-semibold">Pix</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {pixGerado ? 'Ver QR Code pendente' : 'Pagar manualmente'}
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* Botões de ação secundários */}
+                  {plano.mpSubscriptionId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50"
+                      onClick={() => setCancelDialog(true)}
+                    >
+                      Cancelar assinatura
+                    </Button>
+                  )}
+
+                  {valorMensalidade === 0 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Valor da mensalidade não configurado. Entre em contato com o suporte.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Rodapé de segurança */}
+              {view === 'plano' && (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-2 border-t mt-auto">
+                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                  Seus dados são protegidos e 100% seguros.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card: histórico de pagamentos */}
+          <Card className="flex flex-col">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Histórico de pagamentos</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col">
+              {pagamentos.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-10 flex-1 flex items-center justify-center">
+                  Nenhum pagamento registrado ainda.
+                </p>
+              ) : (
+                <>
+                  <div className="divide-y text-sm flex-1">
+                    {pagamentosVisiveis.map(p => {
+                      const st = PAGTO_STATUS[p.status]
+                      return (
+                        <div key={p.id} className="flex items-center justify-between py-2.5 gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                              {p.tipo === 'card'
+                                ? <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                                : <QrCode     className="h-3.5 w-3.5 text-muted-foreground" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm">{fmtValor(p.valor)}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {p.descricao ?? (p.tipo === 'card' ? 'Cartão' : 'Pix')} · {fmtDataCurta(p.criadoEm)}
+                              </p>
+                            </div>
+                          </div>
+                          {st && (
+                            <Badge className={cn('gap-1 text-[11px] shrink-0', st.badgeCn)}>
+                              {st.icon}
+                              {st.label}
+                            </Badge>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {pagamentos.length > PAGAMENTOS_VISIVEIS && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full mt-2 text-xs text-muted-foreground"
+                      onClick={() => setVerTodosPagamentos(v => !v)}
+                    >
+                      {verTodosPagamentos ? 'Ver menos' : `Ver todos (${pagamentos.length})`}
+                    </Button>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Dialog: opções de plano (redesigned) */}
+      {/* ── Dialog: opções de plano ───────────────────────────────────────── */}
       <Dialog open={planosAberto} onOpenChange={setPlanosAberto}>
         <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-          {/* Cabeçalho */}
           <div className="px-6 pt-6 pb-0">
             <DialogHeader className="pb-0">
               <DialogTitle className="text-lg">Escolha seu plano</DialogTitle>
             </DialogHeader>
           </div>
 
-          {/* Banner de valor */}
           <div className="mx-6 mt-3 mb-1 rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/15 px-4 py-2.5">
             <p className="text-sm font-medium text-foreground">
               Mais clientes, mais automação, menos trabalho manual.
@@ -772,15 +868,14 @@ export default function PlanoPage() {
             </p>
           </div>
 
-          {/* Cards dos planos */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-6 py-4">
             {catalogo.map(p => {
-              const isCurrent       = planoLoja?.planoSlug === p.slug
-              const isPendingDown   = planoLoja?.planoPendente?.slug === p.slug
-              const valorAtual      = planoLoja?.valorMensalidade ? Number(planoLoja.valorMensalidade) : null
-              const isUpgrade       = valorAtual != null && Number(p.precoMensal) > valorAtual && !isCurrent
-              const isDowngrade     = valorAtual != null && Number(p.precoMensal) < valorAtual && !isCurrent
-              const isPro           = p.slug === 'pro'
+              const isCurrent     = planoLoja?.planoSlug === p.slug
+              const isPendingDown = planoLoja?.planoPendente?.slug === p.slug
+              const valorAtual    = planoLoja?.valorMensalidade ? Number(planoLoja.valorMensalidade) : null
+              const isUpgrade     = valorAtual != null && Number(p.precoMensal) > valorAtual && !isCurrent
+              const isDowngrade   = valorAtual != null && Number(p.precoMensal) < valorAtual && !isCurrent
+              const isPro         = p.slug === 'pro'
 
               const FEATURE_LABELS: Record<string, string> = {
                 relatorio_periodico:  'Relatório periódico',
@@ -805,7 +900,6 @@ export default function PlanoPage() {
                     !isCurrent && !isPro && 'border-border',
                   )}
                 >
-                  {/* Badge de estado */}
                   <div className="h-5">
                     {isCurrent ? (
                       <Badge variant="outline" className="text-[10px] h-4 px-1.5 py-0 border-emerald-500 text-emerald-600 dark:text-emerald-400">
@@ -822,7 +916,6 @@ export default function PlanoPage() {
                     ) : null}
                   </div>
 
-                  {/* Nome + preço */}
                   <div>
                     <p className={cn('font-bold text-base', isPro && !isCurrent && 'text-primary')}>{p.nome}</p>
                     <div className="flex items-baseline gap-1 mt-0.5">
@@ -838,15 +931,14 @@ export default function PlanoPage() {
                     </p>
                   </div>
 
-                  {/* Lista de features */}
                   <ul className="space-y-1.5 flex-1">
                     {Object.entries(p.features)
                       .filter(([k]) => k in FEATURE_LABELS)
                       .map(([k, v]) => (
                         <li key={k} className="flex items-center gap-2 text-xs">
                           {v
-                            ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                            : <XCircle    className="h-3.5 w-3.5 text-muted-foreground/25 flex-shrink-0" />}
+                            ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            : <XCircle    className="h-3.5 w-3.5 text-muted-foreground/25 shrink-0" />}
                           <span className={cn(v ? 'text-foreground' : 'text-muted-foreground/50 line-through')}>
                             {FEATURE_LABELS[k]}
                           </span>
@@ -854,7 +946,7 @@ export default function PlanoPage() {
                       ))}
                     {p.features.suporte_tipo && (
                       <li className="flex items-center gap-2 text-xs">
-                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                         <span>{SUPORTE_LABEL[p.features.suporte_tipo] ?? p.features.suporte_tipo}</span>
                       </li>
                     )}
@@ -865,7 +957,6 @@ export default function PlanoPage() {
                     )}
                   </ul>
 
-                  {/* Botão de ação */}
                   <div className="mt-auto pt-1">
                     {isCurrent ? (
                       <Button size="sm" className="w-full" variant="outline" disabled>Plano atual</Button>
@@ -907,7 +998,6 @@ export default function PlanoPage() {
             })}
           </div>
 
-          {/* Rodapé: selos de confiança */}
           <div className="border-t bg-muted/40 px-6 py-3">
             <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -924,7 +1014,7 @@ export default function PlanoPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: suporte (mesmo do /ajuda) */}
+      {/* ── Dialog: suporte ───────────────────────────────────────────────── */}
       <Dialog open={suporteAberto} onOpenChange={setSuporteAberto}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -959,7 +1049,7 @@ export default function PlanoPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: cancelar assinatura */}
+      {/* ── Dialog: cancelar assinatura ──────────────────────────────────── */}
       <Dialog open={cancelDialog} onOpenChange={setCancelDialog}>
         <DialogContent>
           <DialogHeader>
