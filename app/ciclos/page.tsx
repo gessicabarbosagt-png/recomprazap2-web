@@ -218,12 +218,16 @@ export default function CiclosPage() {
             <p className="text-sm text-muted-foreground mt-1">{ciclos.length} ciclos ativos</p>
           </div>
           <div className="flex gap-2">
-            {vencidos.length > 0 && (
-              <Button variant="outline" onClick={() => setDispararOpen(true)}>
-                <SendHorizonal className="h-4 w-4 mr-2" />
-                Enviar todos vencidos hoje ({vencidos.length})
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              onClick={() => vencidos.length > 0 && setDispararOpen(true)}
+              disabled={vencidos.length === 0}
+            >
+              <SendHorizonal className="h-4 w-4 mr-2" />
+              {vencidos.length > 0
+                ? `Enviar todos vencidos hoje (${vencidos.length})`
+                : 'Nenhum vencido hoje'}
+            </Button>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" />
               Novo ciclo
