@@ -473,6 +473,30 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
     }
   }
 
+  // ── Aplicar etiqueta direta (sem pedido aberto) ─────────────────────────────
+
+  async function aplicarEtiquetaDireta(etapa: Etapa) {
+    const clienteId = conversaAtivaInfo?.clienteId
+    if (!clienteId) return
+    setCriandoPedido(true)
+    try {
+      await api.post('/pedidos', { clienteId, etapaId: etapa.id })
+      const msg = etapa.tipo === 'final_comprou'
+        ? 'Compra registrada! Informe o valor se quiser.'
+        : 'Etiqueta aplicada'
+      toast.success(msg)
+      const { data } = await api.get(`/pedidos/cliente/${clienteId}/aberto`)
+      const resp = data as BuscarAbertoResponse
+      setPedidoAberto(resp.pedidoAberto ?? null)
+      setUltimoPedidoFechado(resp.ultimoPedidoFechado ?? null)
+      setHistorico(resp.historico ?? [])
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Erro ao aplicar etiqueta')
+    } finally {
+      setCriandoPedido(false)
+    }
+  }
+
   // ── Excluir conversa ─────────────────────────────────────────────────────────
 
   async function handleExcluirConversa() {
@@ -899,64 +923,60 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   Status da conversa
                 </p>
-                {pedidoAberto ? (
-                  <div className="space-y-1.5">
-                    {etapas.filter(e => e.ativo).sort((a, b) => a.ordem - b.ordem).map(etapa => {
-                      const isAtiva = pedidoAberto.etapaId === etapa.id
-                      const colorClasses = etapa.tipo === 'final_comprou'
-                        ? isAtiva
-                          ? 'bg-[#2E9E75] text-white border-[#2E9E75]'
-                          : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-[#2E9E75] dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
-                        : etapa.tipo === 'final_nao_comprou'
-                        ? isAtiva
-                          ? 'bg-red-600 text-white border-red-600'
-                          : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
-                        : isAtiva
-                          ? 'bg-[#1F4E79] text-white border-[#1F4E79]'
-                          : 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-[#1F4E79] dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                      return (
-                        <button
-                          key={etapa.id}
-                          type="button"
-                          disabled={salvandoJornada}
-                          onClick={() => {
+                <div className="space-y-1.5">
+                  {etapas.filter(e => e.ativo).sort((a, b) => a.ordem - b.ordem).map(etapa => {
+                    const isAtiva = pedidoAberto?.etapaId === etapa.id
+                    const colorClasses = etapa.tipo === 'final_comprou'
+                      ? isAtiva
+                        ? 'bg-[#2E9E75] text-white border-[#2E9E75]'
+                        : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-[#2E9E75] dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
+                      : etapa.tipo === 'final_nao_comprou'
+                      ? isAtiva
+                        ? 'bg-red-600 text-white border-red-600'
+                        : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
+                      : isAtiva
+                        ? 'bg-[#1F4E79] text-white border-[#1F4E79]'
+                        : 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-[#1F4E79] dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                    return (
+                      <button
+                        key={etapa.id}
+                        type="button"
+                        disabled={salvandoJornada || criandoPedido}
+                        onClick={() => {
+                          if (pedidoAberto) {
                             if (etapa.tipo === 'final_comprou') {
                               setValorInput('')
                               setEtapaParaConfirmar(etapa)
                             } else {
                               atualizarJornada(etapa)
                             }
-                          }}
-                          className={cn(
-                            'w-full text-left px-3 py-2 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-2',
-                            colorClasses
-                          )}
-                        >
-                          {isAtiva
-                            ? <Check className="h-3 w-3 flex-shrink-0" />
-                            : <span className="w-3 flex-shrink-0" />}
-                          <span className="truncate">{etapa.nome}</span>
-                          {etapa.tipo !== 'intermediaria' && (
-                            <span className={cn('ml-auto text-[10px] flex-shrink-0', isAtiva ? 'opacity-80' : 'text-muted-foreground')}>
-                              Final
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                    {salvandoJornada && (
-                      <div className="flex items-center justify-center py-2">
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground text-center py-6 space-y-1">
-                    <ShoppingBag className="h-6 w-6 mx-auto mb-2 opacity-30" />
-                    <p>Nenhum pedido em andamento.</p>
-                    <p>Use o botão + Pedido para registrar uma nova interação.</p>
-                  </div>
-                )}
+                          } else {
+                            aplicarEtiquetaDireta(etapa)
+                          }
+                        }}
+                        className={cn(
+                          'w-full text-left px-3 py-2 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-2',
+                          colorClasses
+                        )}
+                      >
+                        {isAtiva
+                          ? <Check className="h-3 w-3 flex-shrink-0" />
+                          : <span className="w-3 flex-shrink-0" />}
+                        <span className="truncate">{etapa.nome}</span>
+                        {etapa.tipo !== 'intermediaria' && (
+                          <span className={cn('ml-auto text-[10px] flex-shrink-0', isAtiva ? 'opacity-80' : 'text-muted-foreground')}>
+                            Final
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                  {(salvandoJornada || criandoPedido) && (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
               </div>
             </aside>
           )}
