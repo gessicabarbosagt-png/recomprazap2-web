@@ -152,10 +152,13 @@ export default function CiclosPage() {
   async function handleEnviarAgora(ciclo: Ciclo) {
     setSendingId(ciclo.id)
     try {
-      await api.post(`/ciclos/${ciclo.id}/enviar-lembrete`)
+      const res = await api.post(`/ciclos/${ciclo.id}/enviar-lembrete`)
       toast.success(`Lembrete enviado para ${ciclo.clienteNome}`)
+      const novaProxima: string | undefined = res.data?.proximaNotificacao
       setCiclos((prev) =>
-        prev.map((c) => c.id === ciclo.id ? { ...c, statusUltimoEnvio: 'sucesso' } : c),
+        prev.map((c) => c.id === ciclo.id
+          ? { ...c, statusUltimoEnvio: 'sucesso', proximaNotificacao: novaProxima ?? c.proximaNotificacao }
+          : c),
       )
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Erro ao enviar lembrete'
