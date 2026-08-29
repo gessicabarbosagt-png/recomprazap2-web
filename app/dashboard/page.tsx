@@ -16,14 +16,14 @@ import { useAuth } from '@/lib/auth'
 import {
   Users, Package, RefreshCw, Bell, ShoppingBag,
   TrendingUp, TrendingDown, CircleDollarSign, FileDown, Loader2,
-  Activity, UserPlus, CheckCircle2, Layers, Clock,
+  Tag, Layers,
   ArrowUpRight, Minus,
 } from 'lucide-react'
 import {
   PeriodSelector, PeriodValue, periodValueToApiParams,
   periodValueToUrlParams, periodShortLabel,
 } from '@/components/app/period-selector'
-import { format, parseISO, formatDistanceToNow } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 
@@ -62,7 +62,7 @@ interface SerieTemporal {
   totalVendas: number; totalReceita: number
   variacaoVendas: number; variacaoReceita: number
 }
-interface AtividadeLog { id: string; tipo: string; descricao: string; criadoEm: string }
+interface EtapaResumo { id: string; nome: string; ordem: number; tipo: string; total: number }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -171,14 +171,6 @@ const CARD_COLORS = [
   { bg: 'bg-pink-50 dark:bg-pink-950/40',        icon: 'text-pink-600 dark:text-pink-400' },
 ]
 
-// Ícones e labels por tipo de atividade
-const ATIVIDADE_META: Record<string, { icon: React.ElementType; cor: string }> = {
-  cliente_criado:    { icon: UserPlus,     cor: 'text-emerald-500' },
-  pedido_confirmado: { icon: CheckCircle2, cor: 'text-blue-500' },
-  ciclo_criado:      { icon: RefreshCw,    cor: 'text-violet-500' },
-  lembrete_criado:   { icon: Bell,         cor: 'text-orange-500' },
-}
-
 // Formata label do eixo X dos gráficos
 function fmtEixoX(dia: string, agrupamento: 'dia' | 'semana') {
   try {
@@ -223,7 +215,7 @@ export default function DashboardPage() {
   const [origens, setOrigens]                 = useState<OrigemResumo[] | null>(null)
   const [jornada, setJornada]                 = useState<ResumoJornada | null>(null)
   const [serie, setSerie]                     = useState<SerieTemporal | null>(null)
-  const [atividades, setAtividades]           = useState<AtividadeLog[] | null>(null)
+  const [etapasResumo, setEtapasResumo]       = useState<EtapaResumo[] | null>(null)
   const [nomeLoja, setNomeLoja]               = useState('')
   const [loading, setLoading]                 = useState(true)
   const [loadingPDF, setLoadingPDF]           = useState(false)
@@ -237,7 +229,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     api.get('/lojas/minha').then(r => setNomeLoja(r.data.nome ?? '')).catch(() => {})
-    api.get('/atividade-log?limite=6').then(r => setAtividades(r.data)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -245,7 +236,7 @@ export default function DashboardPage() {
     async function load() {
       setLoading(true)
       try {
-        const [lembretes, pedidos, clientes, produtos, ciclos, origensData, jornadaData, serieData] =
+        const [lembretes, pedidos, clientes, produtos, ciclos, origensData, jornadaData, serieData, etapasData] =
           await Promise.all([
             api.get(`/lembretes/resumo${pq ? '?' + pq : ''}`),
             api.get(`/pedidos/resumo${pq ? '?' + pq : ''}`),
@@ -255,6 +246,7 @@ export default function DashboardPage() {
             api.get(`/clientes/origens${pq ? '?' + pq : ''}`),
             api.get(`/pedidos/resumo-jornada${pq ? '?' + pq : ''}`),
             api.get(`/dashboard/serie-temporal${pq ? '?' + pq : ''}`),
+            api.get(`/dashboard/etapas-resumo${pq ? '?' + pq : ''}`),
           ])
         setLembretesResumo(lembretes.data)
         setPedidosResumo(pedidos.data)
@@ -264,6 +256,7 @@ export default function DashboardPage() {
         setOrigens(origensData.data)
         setJornada(jornadaData.data)
         setSerie(serieData.data)
+        setEtapasResumo(Array.isArray(etapasData.data) ? etapasData.data : [])
       } catch { /* silent */ } finally {
         setLoading(false)
       }
@@ -627,51 +620,65 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* ── Linha 4: Atividade recente ────────────────────────────────── */}
+        {/* ── Linha 4: Clientes por etiqueta ───────────────────────────── */}
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Atividade recente
-              </CardTitle>
-              {/* Link inativo por enquanto — escopo menor conforme spec */}
-              <span className="text-xs text-muted-foreground/50 select-none">Ver todas</span>
-            </div>
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Tag className="h-4 w-4" />
+              Clientes por etiqueta
+              <span className="ml-auto text-xs font-normal text-muted-foreground/60">{periodLabel}</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {atividades === null ? (
-              <div className="space-y-3">
+            {loading ? (
+              <div className="space-y-2.5">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="h-8 w-8 rounded-full shrink-0" />
-                    <div className="flex-1 space-y-1">
-                      <Skeleton className="h-3.5 w-3/4" />
-                      <Skeleton className="h-3 w-1/3" />
-                    </div>
+                    <Skeleton className="h-5 w-24 rounded-full" />
+                    <Skeleton className="h-4 flex-1" />
+                    <Skeleton className="h-5 w-8 rounded-full" />
                   </div>
                 ))}
               </div>
-            ) : atividades.length === 0 ? (
+            ) : !etapasResumo || etapasResumo.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
-                Nenhuma atividade registrada ainda. Crie um cliente ou confirme uma venda para começar.
+                Nenhuma etapa configurada.
               </p>
             ) : (
               <div className="divide-y">
-                {atividades.map(a => {
-                  const meta = ATIVIDADE_META[a.tipo] ?? { icon: Clock, cor: 'text-muted-foreground' }
-                  const Icon = meta.icon
+                {etapasResumo.map(etapa => {
+                  const isComprou    = etapa.tipo === 'final_comprou'
+                  const isNaoComprou = etapa.tipo === 'final_nao_comprou'
                   return (
-                    <div key={a.id} className="flex items-center gap-3 py-2.5">
-                      <div className={cn('h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0')}>
-                        <Icon className={cn('h-4 w-4', meta.cor)} />
+                    <div key={etapa.id} className="flex items-center gap-3 py-2.5">
+                      <span className={cn(
+                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0',
+                        isComprou    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
+                        isNaoComprou ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300' :
+                                       'bg-muted text-muted-foreground',
+                      )}>
+                        {etapa.nome}
+                      </span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        {etapa.total > 0 && (
+                          <div
+                            className={cn(
+                              'h-full rounded-full',
+                              isComprou    ? 'bg-emerald-500 dark:bg-emerald-400' :
+                              isNaoComprou ? 'bg-rose-400 dark:bg-rose-500' :
+                                             'bg-muted-foreground/40',
+                            )}
+                            style={{
+                              width: `${Math.min(100, Math.round(
+                                (etapa.total / Math.max(...etapasResumo.map(e => e.total), 1)) * 100
+                              ))}%`,
+                            }}
+                          />
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{a.descricao}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(parseISO(a.criadoEm), { addSuffix: true, locale: ptBR })}
-                        </p>
-                      </div>
+                      <span className="text-sm font-semibold tabular-nums w-7 text-right shrink-0">
+                        {etapa.total}
+                      </span>
                     </div>
                   )
                 })}
