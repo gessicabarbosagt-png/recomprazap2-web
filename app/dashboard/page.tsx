@@ -549,11 +549,18 @@ export default function DashboardPage() {
                       <span className="h-2.5 w-2.5 rounded-full bg-muted" />
                       Não convertidos ({naoConvertido})
                     </div>
-                    {jornada && jornada.comprasSemValor > 0 && (
-                      <Link href="/pedidos?etapa=comprou" className="text-xs text-amber-600 hover:underline block">
-                        {jornada.comprasSemValor} venda{jornada.comprasSemValor > 1 ? 's' : ''} sem valor →
-                      </Link>
-                    )}
+                    {jornada && jornada.comprasSemValor > 0 && (() => {
+                      const etapaComprou = etapasResumo?.find(e => e.tipo === 'final_comprou')
+                      if (!etapaComprou) return null
+                      return (
+                        <Link
+                          href={`/pedidos?etapa=${etapaComprou.id}&${periodValueToUrlParams(period).toString()}`}
+                          className="text-xs text-amber-600 hover:underline block"
+                        >
+                          {jornada.comprasSemValor} venda{jornada.comprasSemValor > 1 ? 's' : ''} sem valor →
+                        </Link>
+                      )
+                    })()}
                   </div>
                 </div>
               )}
@@ -649,8 +656,13 @@ export default function DashboardPage() {
                 {etapasResumo.map(etapa => {
                   const isComprou    = etapa.tipo === 'final_comprou'
                   const isNaoComprou = etapa.tipo === 'final_nao_comprou'
+                  const etapaUrl = `/pedidos?etapa=${etapa.id}&${periodValueToUrlParams(period).toString()}`
                   return (
-                    <div key={etapa.id} className="flex items-center gap-3 py-2.5">
+                    <Link
+                      key={etapa.id}
+                      href={etapaUrl}
+                      className="flex items-center gap-3 py-2.5 -mx-2 px-2 rounded-md hover:bg-muted/60 transition-colors"
+                    >
                       <span className={cn(
                         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0',
                         isComprou    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
@@ -679,7 +691,7 @@ export default function DashboardPage() {
                       <span className="text-sm font-semibold tabular-nums w-7 text-right shrink-0">
                         {etapa.total}
                       </span>
-                    </div>
+                    </Link>
                   )
                 })}
               </div>

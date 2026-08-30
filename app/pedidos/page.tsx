@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { MessageSquare, ArrowLeft } from 'lucide-react'
+import { MessageSquare, ArrowLeft, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
@@ -36,14 +36,11 @@ interface Pedido {
   createdAt: string
 }
 
-const ETAPA_LABELS: Record<string, string> = {
-  comprou:           'Comprou',
-  nao_comprou:       'Não comprou',
-  aguardando:        'Aguardando',
-  orcamento_enviado: 'Orçamento enviado',
+interface EtapaInfo {
+  id: string
+  nome: string
+  tipo: string
 }
-
-const ETAPAS_FINAIS = new Set(['comprou', 'nao_comprou'])
 
 function formatValor(v: number | null | undefined) {
   if (v == null) return '—'
@@ -57,21 +54,40 @@ function formatData(iso: string | null) {
   })
 }
 
+function etapaBadgeClass(tipo: string) {
+  if (tipo === 'final_comprou')     return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+  if (tipo === 'final_nao_comprou') return 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+  return 'bg-muted text-muted-foreground'
+}
+
 // ─── Conteúdo ─────────────────────────────────────────────────────────────────
 
 function PedidosContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const etapa = searchParams.get('etapa') ?? undefined
-  const isFinalStage = etapa ? ETAPAS_FINAIS.has(etapa) : false
+  const etapaParam = searchParams.get('etapa') ?? undefined
 
-  // Lê período da URL; etapas não-finais (pendentes) default para "todos"
-  const initialPeriod = searchParams.get('periodo')
+  // Info da etapa filtrada (busca pelo UUID)
+  const [etapaInfo, setEtapaInfo] = useState<EtapaInfo | null>(null)
+  useEffect(() => {
+    if (!etapaParam) { setEtapaInfo(null); return }
+    api.get('/etapas-jornada').then(({ data }) => {
+      const found = Array.isArray(data) ? data.find((e: EtapaInfo) => e.id === etapaParam) : null
+      setEtapaInfo(found ?? null)
+    }).catch(() => setEtapaInfo(null))
+  }, [etapaParam])
+
+  // Etapa final = visão de compras (usa confirmado_em, sem "Todos" no period selector)
+  // Sem filtro de etapa = padrão = só vendas reais (também final)
+  const isFinalStage = !etapaParam || (
+    etapaInfo !== null &&
+    (etapaInfo.tipo === 'final_comprou' || etapaInfo.tipo === 'final_nao_comprou')
+  )
+
+  const initialPeriod: PeriodValue = searchParams.get('periodo')
     ? parsePeriodFromUrl(searchParams.get('periodo'), searchParams.get('de'), searchParams.get('ate'))
-    : isFinalStage
-    ? { type: 'preset' as const, dias: 30 }
-    : { type: 'todos' as const }
+    : { type: 'preset', dias: 30 }
 
   const [period, setPeriod] = useState<PeriodValue>(initialPeriod)
   const [pedidos, setPedidos] = useState<Pedido[]>([])
@@ -80,20 +96,21 @@ function PedidosContent() {
   const [editandoValorInput, setEditandoValorInput] = useState('')
   const [salvandoValorId, setSalvandoValorId] = useState<string | null>(null)
 
-  // Sincroniza estado de período → URL (sem reload)
   const updateUrl = useCallback((v: PeriodValue) => {
-    const p = periodValueToUrlParams(v)
-    if (etapa) p.set('etapa', etapa)
-    // Garante que etapa vem antes do periodo na URL
     const ordered = new URLSearchParams()
-    if (etapa) ordered.set('etapa', etapa)
+    if (etapaParam) ordered.set('etapa', etapaParam)
     periodValueToUrlParams(v).forEach((val, key) => ordered.set(key, val))
     router.replace(`/pedidos?${ordered.toString()}`, { scroll: false })
-  }, [etapa, router])
+  }, [etapaParam, router])
 
   function handlePeriodChange(v: PeriodValue) {
     setPeriod(v)
     updateUrl(v)
+  }
+
+  function clearEtapaFilter() {
+    const p = periodValueToUrlParams(period)
+    router.push(`/pedidos?${p.toString()}`)
   }
 
   async function salvarValorPedido(id: string) {
@@ -113,13 +130,16 @@ function PedidosContent() {
     }
   }
 
-  // Carrega pedidos ao mudar etapa ou período
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
         const apiParams = new URLSearchParams()
-        if (etapa) apiParams.set('statusJornada', etapa)
+        if (etapaParam) {
+          // Filtro por etapa UUID — backend ignora o padrão final_comprou
+          apiParams.set('etapaId', etapaParam)
+        }
+        // Sem etapaParam: API retorna apenas final_comprou por padrão
 
         const { dias, desde, ate } = periodValueToApiParams(period)
         if (dias != null) apiParams.set('dias', String(dias))
@@ -135,19 +155,17 @@ function PedidosContent() {
       }
     }
     load()
-  }, [etapa, period])
+  }, [etapaParam, period])
 
-  // ── Labels dinâmicos ────────────────────────────────────────────────────────
-
-  const etapaLabel = etapa ? (ETAPA_LABELS[etapa] ?? etapa) : null
+  // ── Labels ──────────────────────────────────────────────────────────────────
 
   const periodoLabel = periodShortLabel(period)
 
-  const titulo = etapaLabel
-    ? `${etapaLabel} · ${periodoLabel}`
-    : `Pedidos · ${periodoLabel}`
+  const tituloBase = etapaParam ? 'Pedidos' : 'Vendas confirmadas'
 
-  const colunaData = etapa === 'comprou' ? 'Confirmado em' : 'Data'
+  // Coluna de data: confirmado_em para comprou ou visão padrão
+  const usarConfirmadoEm = !etapaParam || etapaInfo?.tipo === 'final_comprou'
+  const colunaData = usarConfirmadoEm ? 'Confirmado em' : 'Data'
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -166,9 +184,27 @@ function PedidosContent() {
             Dashboard
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold">{titulo}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold">{tituloBase} · {periodoLabel}</h1>
+              {etapaParam && (
+                <span className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  etapaInfo ? etapaBadgeClass(etapaInfo.tipo) : 'bg-muted text-muted-foreground',
+                )}>
+                  {etapaInfo ? etapaInfo.nome : '…'}
+                  <button
+                    type="button"
+                    onClick={clearEtapaFilter}
+                    className="ml-0.5 hover:opacity-70"
+                    title="Limpar filtro e ver apenas vendas"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {loading ? '…' : `${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''}`}
+              {loading ? '…' : `${pedidos.length} cliente${pedidos.length !== 1 ? 's' : ''}`}
             </p>
           </div>
         </div>
@@ -210,12 +246,18 @@ function PedidosContent() {
                 </TableRow>
               ) : (
                 pedidos.map((p) => {
-                  const dataDisplay = etapa === 'comprou'
+                  const dataDisplay = usarConfirmadoEm
                     ? formatData(p.confirmadoEm)
                     : formatData(p.createdAt)
 
                   return (
-                    <TableRow key={p.id}>
+                    <TableRow
+                      key={p.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(
+                        `/mensagens?telefone=${encodeURIComponent(p.clienteTelefone)}`
+                      )}
+                    >
                       <TableCell>
                         <p className="font-medium">{p.clienteNome}</p>
                         <p className="text-xs text-muted-foreground">{p.clienteTelefone}</p>
@@ -223,7 +265,10 @@ function PedidosContent() {
                       <TableCell className="text-muted-foreground">
                         {p.produtoNome ?? '—'}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell
+                        className="font-medium"
+                        onClick={e => e.stopPropagation()}
+                      >
                         {p.valor != null ? (
                           <span className="text-emerald-700">{formatValor(p.valor)}</span>
                         ) : editandoValorId === p.id ? (
@@ -235,7 +280,10 @@ function PedidosContent() {
                               inputMode="decimal"
                               value={editandoValorInput}
                               onChange={e => setEditandoValorInput(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter') salvarValorPedido(p.id); if (e.key === 'Escape') setEditandoValorId(null) }}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') salvarValorPedido(p.id)
+                                if (e.key === 'Escape') setEditandoValorId(null)
+                              }}
                               className="h-7 w-24 text-xs px-1.5"
                               placeholder="0,00"
                             />
@@ -262,7 +310,7 @@ function PedidosContent() {
                       <TableCell className="text-sm text-muted-foreground">
                         {dataDisplay}
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
                         <Button
                           size="icon"
                           variant="ghost"
