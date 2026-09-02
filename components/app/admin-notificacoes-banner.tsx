@@ -35,7 +35,7 @@ export function AdminNotificacoesBanner() {
   useEffect(() => {
     if (!usuario || usuario.role === 'admin') return
     api.get('/notificacoes')
-      .then(({ data }) => setNotificacoes(data))
+      .then(({ data }) => setNotificacoes(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [usuario])
 

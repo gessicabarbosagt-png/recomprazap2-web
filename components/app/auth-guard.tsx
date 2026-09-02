@@ -6,14 +6,14 @@ import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { token, loading } = useAuth()
+  const { usuario, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && !token) {
+    if (!loading && !usuario) {
       router.replace('/login')
     }
-  }, [loading, token, router])
+  }, [loading, usuario, router])
 
   if (loading) {
     return (
@@ -23,7 +23,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!token) return null
+  if (!usuario) return null
 
   return <>{children}</>
 }

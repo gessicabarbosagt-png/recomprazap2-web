@@ -35,7 +35,7 @@ interface MetaConfig {
 }
 
 export default function ConfiguracoesPage() {
-  const { usuario, login, token } = useAuth()
+  const { usuario, refreshMe } = useAuth()
   const [aba, setAba] = useState<Aba>('whatsapp')
 
   // ── Meta Ads ───────────────────────────────────────────────────────
@@ -220,14 +220,8 @@ export default function ConfiguracoesPage() {
     e.preventDefault()
     setSalvandoPerfil(true)
     try {
-      const { data } = await api.patch('/lojas/minha/perfil', { nomeUsuario, nomeLoja })
-      if (usuario && token) {
-        login(token, {
-          ...usuario,
-          nome: data.nomeUsuario ?? nomeUsuario,
-          loja: usuario.loja ? { ...usuario.loja, nome: data.nomeLoja ?? nomeLoja } : null,
-        })
-      }
+      await api.patch('/lojas/minha/perfil', { nomeUsuario, nomeLoja })
+      await refreshMe()
       toast.success('Perfil atualizado')
     } catch {
       toast.error('Erro ao salvar perfil')
@@ -241,9 +235,7 @@ export default function ConfiguracoesPage() {
     setSalvandoEmail(true)
     try {
       await api.patch('/lojas/minha/alterar-email', { novoEmail, senhaAtual: senhaEmail })
-      if (usuario && token) {
-        login(token, { ...usuario, email: novoEmail })
-      }
+      await refreshMe()
       toast.success('E-mail atualizado')
       setNovoEmail('')
       setSenhaEmail('')

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import { api } from './api'
 
 interface Usuario {
   id: string
@@ -14,9 +15,9 @@ interface Usuario {
 
 interface AuthContextType {
   usuario: Usuario | null
-  token: string | null
-  login: (token: string, usuario: Usuario) => void
-  logout: () => void
+  login: (usuario: Usuario) => void
+  logout: () => Promise<void>
+  refreshMe: () => Promise<void>
   loading: boolean
 }
 
@@ -24,48 +25,39 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
-  const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    const t = localStorage.getItem('token')
-    const u = localStorage.getItem('usuario')
-    if (t && u) {
-      try {
-        const storedUser: Usuario = JSON.parse(u)
-        const jwtPayload = JSON.parse(atob(t.split('.')[1]))
-        storedUser.role = jwtPayload.role ?? 'lojista'
-        localStorage.setItem('usuario', JSON.stringify(storedUser))
-        setToken(t)
-        setUsuario(storedUser)
-      } catch {
-        setToken(t)
-        setUsuario(JSON.parse(u))
-      }
-    }
-    setLoading(false)
+    // Verifica sessão ativa consultando o backend (cookie HttpOnly é enviado automaticamente).
+    // 401 = sem sessão válida → estado permanece null, AuthGuard redireciona para /login.
+    api.get<Usuario>('/auth/me')
+      .then(({ data }) => setUsuario(data))
+      .catch(() => setUsuario(null))
+      .finally(() => setLoading(false))
   }, [])
 
-  function login(token: string, usuario: Usuario) {
-    localStorage.setItem('token', token)
-    localStorage.setItem('usuario', JSON.stringify(usuario))
-    setToken(token)
-    setUsuario(usuario)
-    router.push(usuario.role === 'admin' ? '/admin' : '/dashboard')
+  function login(u: Usuario) {
+    setUsuario(u)
+    router.push(u.role === 'admin' ? '/admin' : '/dashboard')
   }
 
-  function logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('usuario')
+  async function logout() {
+    await api.post('/auth/logout').catch(() => {})
     sessionStorage.removeItem('wa_banner_dismissed')
-    setToken(null)
     setUsuario(null)
     router.push('/login')
   }
 
+  // Atualiza o estado do usuário buscando dados frescos do servidor.
+  // Usar após mudanças de perfil (nome, email, loja) para manter a UI sincronizada.
+  async function refreshMe() {
+    const { data } = await api.get<Usuario>('/auth/me')
+    setUsuario(data)
+  }
+
   return (
-    <AuthContext.Provider value={{ usuario, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ usuario, login, logout, refreshMe, loading }}>
       {children}
     </AuthContext.Provider>
   )

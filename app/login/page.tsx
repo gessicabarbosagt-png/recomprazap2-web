@@ -23,7 +23,8 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const { data } = await api.post('/auth/login', { email, senha })
-      login(data.accessToken, data.usuario)
+      // Cookie HttpOnly já foi definido pelo backend — basta passar os dados do usuário.
+      login(data.usuario)
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Erro ao fazer login'
       toast.error(msg)

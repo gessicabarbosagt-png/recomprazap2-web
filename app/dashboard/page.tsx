@@ -253,7 +253,7 @@ export default function DashboardPage() {
         setTotalClientes(clientes.data.length)
         setTotalProdutos(produtos.data.length)
         setTotalCiclos(ciclos.data.length)
-        setOrigens(origensData.data)
+        setOrigens(Array.isArray(origensData.data) ? origensData.data : null)
         setJornada(jornadaData.data)
         setSerie(serieData.data)
         setEtapasResumo(Array.isArray(etapasData.data) ? etapasData.data : [])
