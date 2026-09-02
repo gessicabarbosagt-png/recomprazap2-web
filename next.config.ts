@@ -44,6 +44,18 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
+  async redirects() {
+    return [
+      {
+        // Redireciona permanentemente qualquer rota da URL antiga para o domínio novo,
+        // preservando o caminho completo (ex: /dashboard → app.recomprazap.com.br/dashboard).
+        source: "/:path*",
+        has: [{ type: "host", value: "recomprazap2-web.vercel.app" }],
+        destination: "https://app.recomprazap.com.br/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
