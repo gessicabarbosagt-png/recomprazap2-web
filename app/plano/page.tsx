@@ -146,6 +146,19 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
     if ((window as any).MercadoPago) setSdkPronto(true)
   }, [])
 
+  // Impede que erros cross-origin do SDK do MP (que aparecem como "Script error." sem source)
+  // propagiem ao error handler global do Next.js e derrubem a página inteira.
+  useEffect(() => {
+    const handler = (e: ErrorEvent) => {
+      if (e.message === 'Script error.' && !e.filename) {
+        e.stopImmediatePropagation()
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('error', handler, true)
+    return () => window.removeEventListener('error', handler, true)
+  }, [])
+
   useEffect(() => {
     if (!sdkPronto || montado || !mpPublicKey) return
 
@@ -153,7 +166,7 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
 
     cardFormRef.current = mp.cardForm({
       amount: String(valorMensalidade),
-      iframe: false,
+      iframe: true,
       form: {
         id: 'mp-card-form',
         cardNumber:           { id: 'mp-card-number',      placeholder: '0000 0000 0000 0000' },
