@@ -158,19 +158,6 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
     if ((window as any).MercadoPago) setSdkPronto(true)
   }, [])
 
-  // Impede que erros cross-origin do SDK do MP ("Script error." sem source)
-  // atinjam o error handler global do Next.js e derrubem a página inteira.
-  useEffect(() => {
-    const handler = (e: ErrorEvent) => {
-      if (e.message === 'Script error.' && !e.filename) {
-        e.stopImmediatePropagation()
-        e.preventDefault()
-      }
-    }
-    window.addEventListener('error', handler, true)
-    return () => window.removeEventListener('error', handler, true)
-  }, [])
-
   useEffect(() => {
     if (!sdkPronto || cardFormMontadoRef.current || !mpPublicKey) return
 
@@ -212,11 +199,26 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
     })
 
     return () => {
-      cardFormRef.current?.unmount?.()
+      try { cardFormRef.current?.unmount?.() } catch { /* SDK pode lançar durante cleanup */ }
       cardFormMontadoRef.current = false
       setMontado(false)
     }
   }, [sdkPronto, mpPublicKey, valorMensalidade])
+
+  // IMPORTANTE: esse effect DEVE ficar depois do cardForm effect.
+  // React roda cleanups na ordem de declaração dos effects, então colocando
+  // o suppressor por último, seu removeEventListener só executa APÓS o unmount()
+  // do cardForm — mantendo o handler ativo durante todo o cleanup do SDK.
+  useEffect(() => {
+    const handler = (e: ErrorEvent) => {
+      if (e.message === 'Script error.' && !e.filename) {
+        e.stopImmediatePropagation()
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('error', handler, true)
+    return () => window.removeEventListener('error', handler, true)
+  }, [])
 
   return (
     <>
@@ -245,7 +247,7 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
 
         <div className="space-y-1.5">
           <Label htmlFor="mp-cardholder-name">Nome no cartão</Label>
-          <div id="mp-cardholder-name" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          <input id="mp-cardholder-name" type="text" placeholder="Nome no cartão" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -255,13 +257,13 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="mp-doc-number">CPF / CNPJ</Label>
-            <div id="mp-doc-number" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <input id="mp-doc-number" type="text" placeholder="000.000.000-00" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
           </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="mp-cardholder-email">E-mail (para recibos)</Label>
-          <div id="mp-cardholder-email" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          <input id="mp-cardholder-email" type="email" placeholder="e-mail" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
         </div>
 
         <select id="mp-issuer"       className="hidden" />
