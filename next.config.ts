@@ -5,9 +5,9 @@ import type { NextConfig } from "next";
 // Fontes Inter: next/font/google baixa em build-time e self-hosta — não precisa
 // de fonts.googleapis.com nem fonts.gstatic.com aqui.
 const MP_SCRIPT    = "https://sdk.mercadopago.com";
-const MP_FRAMES    = "https://*.mercadopago.com https://*.mlstatic.com";
-const MP_CONNECT   = "https://api.mercadopago.com https://*.mercadopago.com";
-const MP_IMAGES    = "https://*.mlstatic.com https://*.mercadopago.com";
+const MP_FRAMES    = "https://*.mercadopago.com https://*.mercadopago.com.br https://*.mlstatic.com https://*.mercadolibre.com";
+const MP_CONNECT   = "https://api.mercadopago.com https://*.mercadopago.com https://*.mercadopago.com.br";
+const MP_IMAGES    = "https://*.mlstatic.com https://*.mercadopago.com https://*.mercadopago.com.br";
 
 // CSP em modo Report-Only: monitora violações sem bloquear nada.
 // Trocar Content-Security-Policy-Report-Only por Content-Security-Policy

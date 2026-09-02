@@ -140,14 +140,26 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
   const [montado, setMontado] = useState(false)
   const [emailCartao, setEmailCartao] = useState('')
 
+  // Refs para callbacks — lê sempre o valor mais recente sem incluir
+  // onToken/emailCartao nos deps do effect de montagem (o que causaria remount).
+  const onTokenRef     = useRef(onToken)
+  const emailCartaoRef = useRef(emailCartao)
+  useEffect(() => { onTokenRef.current = onToken }, [onToken])
+  useEffect(() => { emailCartaoRef.current = emailCartao }, [emailCartao])
+
+  // Guarda via ref (não estado) se o cardForm já foi instanciado.
+  // Usar `montado` (estado) nos deps causava: setMontado(true) → re-render →
+  // cleanup do effect → unmount → "Cardform already instantiated" no remount.
+  const cardFormMontadoRef = useRef(false)
+
   const mpPublicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY ?? ''
 
   useEffect(() => {
     if ((window as any).MercadoPago) setSdkPronto(true)
   }, [])
 
-  // Impede que erros cross-origin do SDK do MP (que aparecem como "Script error." sem source)
-  // propagiem ao error handler global do Next.js e derrubem a página inteira.
+  // Impede que erros cross-origin do SDK do MP ("Script error." sem source)
+  // atinjam o error handler global do Next.js e derrubem a página inteira.
   useEffect(() => {
     const handler = (e: ErrorEvent) => {
       if (e.message === 'Script error.' && !e.filename) {
@@ -160,8 +172,9 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
   }, [])
 
   useEffect(() => {
-    if (!sdkPronto || montado || !mpPublicKey) return
+    if (!sdkPronto || cardFormMontadoRef.current || !mpPublicKey) return
 
+    cardFormMontadoRef.current = true
     const mp = new (window as any).MercadoPago(mpPublicKey, { locale: 'pt-BR' })
 
     cardFormRef.current = mp.cardForm({
@@ -182,6 +195,7 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
       callbacks: {
         onFormMounted: (error: any) => {
           if (error) toast.error('Erro ao montar formulário de cartão')
+          else setMontado(true)
         },
         onSubmit: async (event: any) => {
           event.preventDefault()
@@ -191,15 +205,18 @@ function MpCardForm({ valorMensalidade, onToken, onCancel, loading }: CardFormPr
             return
           }
           const lastFour = formData.cardNumber?.slice(-4) ?? ''
-          const email    = formData.cardholderEmail ?? emailCartao
-          onToken(formData.token, lastFour, email)
+          const email    = formData.cardholderEmail ?? emailCartaoRef.current
+          onTokenRef.current(formData.token, lastFour, email)
         },
       },
     })
-    setMontado(true)
 
-    return () => { cardFormRef.current?.unmount?.() }
-  }, [sdkPronto, montado, mpPublicKey, valorMensalidade, onToken, emailCartao])
+    return () => {
+      cardFormRef.current?.unmount?.()
+      cardFormMontadoRef.current = false
+      setMontado(false)
+    }
+  }, [sdkPronto, mpPublicKey, valorMensalidade])
 
   return (
     <>
