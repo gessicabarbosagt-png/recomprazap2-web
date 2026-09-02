@@ -1,7 +1,8 @@
 import axios from 'axios'
 
-// Em produção, definir NEXT_PUBLIC_API_URL=https://api.recomprazap.com.br no Railway/Vercel.
-// Em desenvolvimento local, aponta para http://localhost:3000/api/v1.
+// NEXT_PUBLIC_API_URL deve incluir o caminho completo com /api/v1.
+// Vercel: https://api.recomprazap.com.br/api/v1
+// Dev local: http://localhost:3000/api/v1 (via .env.local)
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1'
 
 export const api = axios.create({
