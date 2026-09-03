@@ -307,6 +307,7 @@ export default function PlanoPage() {
   const [planoLoja, setPlanoLoja] = useState<PlanoLoja | null>(null)
   const [aplicandoPlano, setAplicandoPlano] = useState(false)
   const [verTodosPagamentos, setVerTodosPagamentos] = useState(false)
+  const [cardFormKey, setCardFormKey] = useState(0)
 
   const carregarDados = useCallback(async () => {
     try {
@@ -394,6 +395,7 @@ export default function PlanoPage() {
       setView('plano')
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Erro ao processar cartão')
+      setCardFormKey(k => k + 1)
     } finally {
       setProcessando(false)
     }
@@ -693,6 +695,7 @@ export default function PlanoPage() {
 
               {view === 'add-card' ? (
                 <MpCardForm
+                  key={cardFormKey}
                   valorMensalidade={valorMensalidade}
                   onToken={handleToken}
                   onCancel={() => setView('plano')}
