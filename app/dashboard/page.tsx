@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useChecklist, CHECKLIST_ITENS } from '@/lib/checklist-context'
 import {
   Users, Package, RefreshCw, Bell, ShoppingBag,
   TrendingUp, TrendingDown, CircleDollarSign, FileDown, Loader2,
@@ -41,6 +42,8 @@ const Cell           = dynamic(() => import('recharts').then(m => m.Cell),      
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
+// Checklist type lives in lib/checklist-context.tsx
+
 interface Resumo {
   total: number; enviados: number; semResposta: number; cancelados: number
 }
@@ -63,15 +66,6 @@ interface SerieTemporal {
   variacaoVendas: number; variacaoReceita: number
 }
 interface EtapaResumo { id: string; nome: string; ordem: number; tipo: string; total: number }
-interface Checklist {
-  waConectado: boolean
-  testEnviado: boolean
-  produtosSuficientes: boolean
-  clientesSuficientes: boolean
-  pagamentoConfigurado: boolean
-  completo: boolean
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const ORIGEM_LABELS: Record<string, string> = {
@@ -211,6 +205,7 @@ const CORES_DONUT_ORIGINS = ['#2E9E75', '#1F4E79', '#6366f1', '#f59e0b', '#ec489
 
 export default function DashboardPage() {
   const { usuario } = useAuth()
+  const { checklist } = useChecklist()
   const router = useRouter()
   const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD)
 
@@ -225,7 +220,6 @@ export default function DashboardPage() {
   const [serie, setSerie]                     = useState<SerieTemporal | null>(null)
   const [etapasResumo, setEtapasResumo]       = useState<EtapaResumo[] | null>(null)
   const [nomeLoja, setNomeLoja]               = useState('')
-  const [checklist, setChecklist]             = useState<Checklist | null>(null)
   const [loading, setLoading]                 = useState(true)
   const [loadingPDF, setLoadingPDF]           = useState(false)
   const [vendasPDF, setVendasPDF]             = useState<VendaConfirmada[]>([])
@@ -238,7 +232,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     api.get('/lojas/minha').then(r => setNomeLoja(r.data.nome ?? '')).catch(() => {})
-    api.get('/onboarding/checklist').then(r => setChecklist(r.data)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -374,41 +367,14 @@ export default function DashboardPage() {
 
         {/* ── Checklist de onboarding (esconde quando completo) ────────── */}
         {checklist && !checklist.completo && (() => {
-          const itens = [
-            {
-              label: 'Conecte seu WhatsApp',
-              feito: checklist.waConectado,
-              href: '/configuracoes',
-            },
-            {
-              label: 'Envie seu lembrete de teste',
-              feito: checklist.testEnviado,
-              href: '/onboarding',
-            },
-            {
-              label: 'Adicione mais produtos com ciclo de recompra',
-              feito: checklist.produtosSuficientes,
-              href: '/produtos',
-            },
-            {
-              label: 'Importe sua base de clientes',
-              feito: checklist.clientesSuficientes,
-              href: '/clientes',
-            },
-            {
-              label: 'Adicione uma forma de pagamento',
-              feito: checklist.pagamentoConfigurado,
-              href: '/plano',
-            },
-          ]
-          const concluidos = itens.filter(i => i.feito).length
-          const pct = Math.round((concluidos / itens.length) * 100)
+          const concluidos = CHECKLIST_ITENS.filter(i => checklist[i.key]).length
+          const pct = Math.round((concluidos / CHECKLIST_ITENS.length) * 100)
           return (
             <Card className="border-2 border-emerald-200 dark:border-emerald-900">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">Comece por aqui</CardTitle>
-                  <span className="text-xs text-muted-foreground">{concluidos} de {itens.length} completos</span>
+                  <span className="text-xs text-muted-foreground">{concluidos} de {CHECKLIST_ITENS.length} completos</span>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mt-1">
                   <div
@@ -419,25 +385,26 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 <ul className="space-y-2">
-                  {itens.map((item) => {
+                  {CHECKLIST_ITENS.map((item) => {
+                    const feito = checklist[item.key]
                     const inner = (
                       <li
-                        key={item.label}
+                        key={item.key}
                         className={cn(
                           'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors',
-                          item.feito
+                          feito
                             ? 'text-muted-foreground'
                             : 'hover:bg-muted/60 cursor-pointer font-medium',
                         )}
                       >
-                        {item.feito
+                        {feito
                           ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                           : <Circle className="h-4 w-4 text-muted-foreground shrink-0" />}
-                        <span className={item.feito ? 'line-through' : ''}>{item.label}</span>
+                        <span className={feito ? 'line-through' : ''}>{item.label}</span>
                       </li>
                     )
-                    return item.feito ? inner : (
-                      <Link key={item.label} href={item.href}>{inner}</Link>
+                    return feito ? inner : (
+                      <Link key={item.key} href={item.href}>{inner}</Link>
                     )
                   })}
                 </ul>

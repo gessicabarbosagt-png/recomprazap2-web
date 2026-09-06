@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { LayoutShell } from '@/components/app/layout-shell'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
@@ -24,14 +25,21 @@ import {
   CheckCircle2, XCircle, Clock,
 } from 'lucide-react'
 
+type Unidade = 'kg' | 'grama' | 'pacote' | 'unidade'
+
 interface Produto { id: string; nome: string }
-interface CicloProduto { id: string; nome: string }
+
+interface CicloProduto {
+  id: string
+  nome: string
+  quantidade?: number | null
+  unidade?: Unidade | null
+}
 
 interface Ciclo {
   id: string
   ativo: boolean
   intervaloDias: number
-  quantidade?: string
   horarioEnvio?: string
   proximaNotificacao?: string
   ultimaCompra?: string
@@ -44,12 +52,38 @@ interface Ciclo {
 
 interface Cliente { id: string; nome: string; telefone: string }
 
-const emptyForm = {
+// Por-produto: quantidade e unidade
+interface ProdutoForm {
+  id: string
+  quantidade: string
+  unidade: Unidade | ''
+}
+
+interface FormState {
+  clienteId: string
+  produtos: ProdutoForm[]
+  intervaloDias: string
+  horarioEnvio: string
+}
+
+const emptyForm: FormState = {
   clienteId: '',
-  produtoIds: [] as string[],
+  produtos: [],
   intervaloDias: '30',
-  quantidade: '',
   horarioEnvio: '09:00',
+}
+
+const UNIDADES: { value: Unidade; label: string }[] = [
+  { value: 'kg',      label: 'kg' },
+  { value: 'grama',   label: 'grama(s)' },
+  { value: 'pacote',  label: 'pacote(s)' },
+  { value: 'unidade', label: 'unidade(s)' },
+]
+
+function pluralUnidade(u: Unidade | ''): string {
+  if (!u) return ''
+  const map: Record<Unidade, string> = { kg: 'kg', grama: 'gramas', pacote: 'pacotes', unidade: 'unidades' }
+  return map[u]
 }
 
 function StatusEnvioIcon({ status }: { status?: string | null }) {
@@ -58,7 +92,6 @@ function StatusEnvioIcon({ status }: { status?: string | null }) {
   return <Clock className="h-4 w-4 text-muted-foreground" />
 }
 
-// Formata lista de produtos para exibição na tabela (trunca se muitos)
 function exibirProdutosTabela(produtos: CicloProduto[]) {
   if (!produtos?.length) return <span className="text-muted-foreground">—</span>
   if (produtos.length <= 2) return <span>{produtos.map((p) => p.nome).join(', ')}</span>
@@ -71,15 +104,26 @@ function exibirProdutosTabela(produtos: CicloProduto[]) {
   )
 }
 
-// Formata lista de nomes para prévia da mensagem
-function formatarProdutosMensagem(nomes: string[]): string {
-  if (nomes.length === 0) return ''
-  if (nomes.length === 1) return nomes[0]
-  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`
-  return nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1]
+function formatarPreviaMsg(prods: ProdutoForm[], todosProdutos: Produto[]): string {
+  const partes = prods.map((pf) => {
+    const prod = todosProdutos.find((p) => p.id === pf.id)
+    if (!prod) return ''
+    if (pf.quantidade && pf.unidade) {
+      return `${pf.quantidade} ${pluralUnidade(pf.unidade)} de ${prod.nome}`
+    }
+    return prod.nome
+  }).filter(Boolean)
+
+  if (partes.length === 0) return ''
+  if (partes.length === 1) return partes[0]
+  if (partes.length === 2) return `${partes[0]} e ${partes[1]}`
+  return partes.slice(0, -1).join(', ') + ' e ' + partes[partes.length - 1]
 }
 
-export default function CiclosPage() {
+function CiclosContent() {
+  const searchParams = useSearchParams()
+  const produtoIdPresel = searchParams.get('produtoId')
+
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [produtos, setProdutos] = useState<Produto[]>([])
@@ -87,7 +131,7 @@ export default function CiclosPage() {
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<Ciclo | null>(null)
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<FormState>(emptyForm)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [dispararOpen, setDispararOpen] = useState(false)
   const [dispararAll, setDispararAll] = useState(false)
@@ -120,6 +164,22 @@ export default function CiclosPage() {
 
   useEffect(() => { load() }, [])
 
+  // Abre modal de criação pré-selecionando produto vindo da URL
+  useEffect(() => {
+    if (produtoIdPresel && produtos.length > 0 && !open) {
+      const existe = produtos.find((p) => p.id === produtoIdPresel)
+      if (existe) {
+        setEditing(null)
+        setForm({
+          ...emptyForm,
+          produtos: [{ id: produtoIdPresel, quantidade: '', unidade: '' }],
+        })
+        setOpen(true)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [produtoIdPresel, produtos])
+
   function openCreate() {
     setEditing(null)
     setForm(emptyForm)
@@ -130,36 +190,56 @@ export default function CiclosPage() {
     setEditing(ciclo)
     setForm({
       clienteId: ciclo.clienteId,
-      produtoIds: ciclo.produtos?.map((p) => p.id) ?? [],
+      produtos: ciclo.produtos?.map((p) => ({
+        id: p.id,
+        quantidade: p.quantidade != null ? String(p.quantidade) : '',
+        unidade: p.unidade ?? '',
+      })) ?? [],
       intervaloDias: String(ciclo.intervaloDias),
-      quantidade: ciclo.quantidade != null ? String(ciclo.quantidade) : '',
       horarioEnvio: ciclo.horarioEnvio ?? '09:00',
     })
     setOpen(true)
   }
 
   function toggleProduto(produtoId: string) {
+    setForm((prev) => {
+      const jaTemIdx = prev.produtos.findIndex((p) => p.id === produtoId)
+      if (jaTemIdx >= 0) {
+        return { ...prev, produtos: prev.produtos.filter((p) => p.id !== produtoId) }
+      }
+      return {
+        ...prev,
+        produtos: [...prev.produtos, { id: produtoId, quantidade: '', unidade: '' }],
+      }
+    })
+  }
+
+  function updateProdutoForm(produtoId: string, field: 'quantidade' | 'unidade', value: string) {
     setForm((prev) => ({
       ...prev,
-      produtoIds: prev.produtoIds.includes(produtoId)
-        ? prev.produtoIds.filter((id) => id !== produtoId)
-        : [...prev.produtoIds, produtoId],
+      produtos: prev.produtos.map((p) =>
+        p.id === produtoId ? { ...p, [field]: value } : p,
+      ),
     }))
   }
 
   async function handleSave() {
     if (!editing && !form.clienteId) return toast.error('Selecione o cliente')
-    if (!form.produtoIds.length) return toast.error('Selecione pelo menos um produto')
+    if (!form.produtos.length) return toast.error('Selecione pelo menos um produto')
     if (!form.intervaloDias || parseInt(form.intervaloDias) < 1) {
       return toast.error('Intervalo deve ser pelo menos 1 dia')
     }
     setSaving(true)
     try {
+      const produtosPayload = form.produtos.map((p) => ({
+        id: p.id,
+        quantidade: p.quantidade ? parseFloat(p.quantidade) : undefined,
+        unidade: p.unidade || undefined,
+      }))
       const payload: any = {
         intervaloDias: parseInt(form.intervaloDias),
-        quantidade: form.quantidade.trim() || undefined,
         horarioEnvio: form.horarioEnvio || '09:00',
-        produtoIds: form.produtoIds,
+        produtos: produtosPayload,
       }
       if (!editing) {
         payload.clienteId = form.clienteId
@@ -249,10 +329,7 @@ export default function CiclosPage() {
     return <span className="text-sm">{formatDate(data)}</span>
   }
 
-  const produtosSelecionados = produtos.filter((p) => form.produtoIds.includes(p.id))
-  const previaMsg = produtosSelecionados.length > 0
-    ? formatarProdutosMensagem(produtosSelecionados.map((p) => p.nome))
-    : null
+  const previaMsg = formatarPreviaMsg(form.produtos, produtos)
 
   return (
     <LayoutShell>
@@ -287,7 +364,6 @@ export default function CiclosPage() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Produto(s)</TableHead>
                 <TableHead>Intervalo</TableHead>
-                <TableHead>Qtde.</TableHead>
                 <TableHead>Horário</TableHead>
                 <TableHead>
                   <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Próx. lembrete</span>
@@ -301,14 +377,14 @@ export default function CiclosPage() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : ciclos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                     Nenhum ciclo cadastrado
                   </TableCell>
                 </TableRow>
@@ -321,7 +397,6 @@ export default function CiclosPage() {
                     </TableCell>
                     <TableCell>{exibirProdutosTabela(c.produtos)}</TableCell>
                     <TableCell>{c.intervaloDias}d</TableCell>
-                    <TableCell>{c.quantidade ?? '—'}</TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
                         {c.horarioEnvio ? c.horarioEnvio.slice(0, 5) : '—'}
@@ -383,7 +458,7 @@ export default function CiclosPage() {
             {!editing && (
               <div className="space-y-1.5">
                 <Label>Cliente *</Label>
-                <Select value={form.clienteId} onValueChange={(v) => setForm({ ...form, clienteId: v ?? '' })}>
+                <Select value={form.clienteId} onValueChange={(v) => setForm({ ...form, clienteId: v || '' })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o cliente" />
                   </SelectTrigger>
@@ -396,30 +471,62 @@ export default function CiclosPage() {
               </div>
             )}
 
-            {/* Multi-select de produtos */}
+            {/* Multi-select de produtos com quantidade/unidade por produto */}
             <div className="space-y-1.5">
               <Label>Produto(s) *</Label>
-              <div className="rounded-md border divide-y max-h-44 overflow-y-auto">
+              <div className="rounded-md border divide-y max-h-72 overflow-y-auto">
                 {produtos.length === 0 ? (
                   <p className="text-sm text-muted-foreground px-3 py-2">Nenhum produto cadastrado</p>
                 ) : (
-                  produtos.map((p) => (
-                    <label
-                      key={p.id}
-                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 select-none"
-                    >
-                      <Checkbox
-                        checked={form.produtoIds.includes(p.id)}
-                        onCheckedChange={() => toggleProduto(p.id)}
-                      />
-                      <span className="text-sm">{p.nome}</span>
-                    </label>
-                  ))
+                  produtos.map((p) => {
+                    const selecionado = form.produtos.find((pf) => pf.id === p.id)
+                    return (
+                      <div key={p.id} className="px-3 py-2">
+                        <label className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 select-none -mx-3 px-3 py-1 rounded">
+                          <Checkbox
+                            checked={!!selecionado}
+                            onCheckedChange={() => toggleProduto(p.id)}
+                          />
+                          <span className="text-sm font-medium">{p.nome}</span>
+                        </label>
+                        {selecionado && (
+                          <div className="mt-2 ml-7 flex gap-2">
+                            <div className="flex-1">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Qtde."
+                                value={selecionado.quantidade}
+                                onChange={(e) => updateProdutoForm(p.id, 'quantidade', e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="w-36">
+                              <Select
+                                value={selecionado.unidade}
+                                onValueChange={(v) => updateProdutoForm(p.id, 'unidade', v || '')}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Unidade" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {UNIDADES.map((u) => (
+                                    <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
                 )}
               </div>
-              {form.produtoIds.length > 0 && (
+              {form.produtos.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {form.produtoIds.length} produto{form.produtoIds.length !== 1 ? 's' : ''} selecionado{form.produtoIds.length !== 1 ? 's' : ''}
+                  {form.produtos.length} produto{form.produtos.length !== 1 ? 's' : ''} selecionado{form.produtos.length !== 1 ? 's' : ''}
                 </p>
               )}
             </div>
@@ -437,19 +544,6 @@ export default function CiclosPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Quantidade (opcional)</Label>
-              <Input
-                type="text"
-                placeholder="2 kg"
-                value={form.quantidade}
-                onChange={(e) => setForm({ ...form, quantidade: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Como aparece na mensagem. Ex: 2 kg, 1 pacote, 500g
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
               <Label>Horário de envio automático</Label>
               <Input
                 type="time"
@@ -464,7 +558,7 @@ export default function CiclosPage() {
             {previaMsg && (
               <div className="rounded-md bg-muted px-3 py-2 text-sm">
                 <p className="text-xs text-muted-foreground mb-1">Prévia na mensagem de lembrete:</p>
-                <p>Já está na hora de repor <strong>{previaMsg}</strong>{form.quantidade.trim() ? ` (${form.quantidade.trim()})` : ''}.</p>
+                <p>Já está na hora de repor <strong>{previaMsg}</strong>.</p>
               </div>
             )}
           </div>
@@ -542,5 +636,13 @@ export default function CiclosPage() {
         </DialogContent>
       </Dialog>
     </LayoutShell>
+  )
+}
+
+export default function CiclosPage() {
+  return (
+    <Suspense>
+      <CiclosContent />
+    </Suspense>
   )
 }

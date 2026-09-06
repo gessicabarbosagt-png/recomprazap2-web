@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/auth'
 import { ThemeProvider } from '@/lib/theme'
 import { Toaster } from '@/components/ui/sonner'
+import { ChecklistProvider } from '@/lib/checklist-context'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full bg-background text-foreground font-sans">
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <ChecklistProvider>
+              {children}
+            </ChecklistProvider>
             <Toaster richColors position="top-right" />
           </AuthProvider>
         </ThemeProvider>

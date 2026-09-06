@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { LayoutShell } from '@/components/app/layout-shell'
 import { api } from '@/lib/api'
+import { useChecklist } from '@/lib/checklist-context'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,7 +17,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import { Plus, Pencil, Trash2, Loader2, Upload } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Upload, RefreshCw, X } from 'lucide-react'
 
 interface Produto {
   id: string
@@ -63,6 +65,7 @@ function parsePreco(raw: string): number | undefined {
 }
 
 export default function ProdutosPage() {
+  const { refetch: refetchChecklist } = useChecklist()
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -72,6 +75,8 @@ export default function ProdutosPage() {
   const [csvOpen, setCsvOpen] = useState(false)
   const [csvRows, setCsvRows] = useState<CsvRow[]>([])
   const [csvImporting, setCsvImporting] = useState(false)
+  // Nudge: produto recém-criado aguardando ciclo
+  const [nudgeProduto, setNudgeProduto] = useState<{ id: string; nome: string } | null>(null)
 
   async function load() {
     try {
@@ -116,12 +121,15 @@ export default function ProdutosPage() {
       if (editing) {
         await api.patch(`/produtos/${editing.id}`, payload)
         toast.success('Produto atualizado')
+        setOpen(false)
+        load()
       } else {
-        await api.post('/produtos', payload)
-        toast.success('Produto criado')
+        const { data } = await api.post('/produtos', payload)
+        setOpen(false)
+        await load()
+        refetchChecklist()
+        setNudgeProduto({ id: data.id, nome: form.nome })
       }
-      setOpen(false)
-      load()
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Erro ao salvar')
     } finally {
@@ -180,6 +188,7 @@ export default function ProdutosPage() {
       toast.warning(`${ok} importado${ok !== 1 ? 's' : ''}, ${fail} com erro`)
     }
     load()
+    refetchChecklist()
   }
 
   function formatPreco(p?: number) {
@@ -206,6 +215,30 @@ export default function ProdutosPage() {
             </Button>
           </div>
         </div>
+
+        {/* Nudge: configurar ciclo após criar produto */}
+        {nudgeProduto && (
+          <div className="flex items-center gap-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/30 px-4 py-3">
+            <RefreshCw className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <p className="text-sm flex-1">
+              <span className="font-medium">{nudgeProduto.nome}</span> criado com sucesso!
+              {' '}Quer configurar um ciclo de recompra para ele agora?
+            </p>
+            <Link
+              href={`/ciclos?produtoId=${nudgeProduto.id}`}
+              className="shrink-0 text-sm font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
+              onClick={() => setNudgeProduto(null)}
+            >
+              Criar ciclo →
+            </Link>
+            <button
+              onClick={() => setNudgeProduto(null)}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         <div className="rounded-md border">
           <Table>

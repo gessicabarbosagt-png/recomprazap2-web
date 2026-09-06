@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
+import { useChecklist, CHECKLIST_ITENS } from '@/lib/checklist-context'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   LayoutDashboard,
   Users,
@@ -23,6 +25,9 @@ import {
   Clock,
   HelpCircle,
   CreditCard,
+  CheckCircle2,
+  Circle,
+  ListChecks,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 
@@ -45,6 +50,71 @@ const navBottom = [
   { href: '/plano', label: 'Meu Plano', icon: CreditCard },
   { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]
+
+function ChecklistWidget() {
+  const { checklist } = useChecklist()
+
+  if (!checklist || checklist.completo) return null
+
+  const concluidos = CHECKLIST_ITENS.filter((i) => checklist[i.key]).length
+  const total = CHECKLIST_ITENS.length
+  const pct = Math.round((concluidos / total) * 100)
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        className="w-full rounded-md border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/30 px-3 py-2 text-left hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
+      >
+        <div className="flex items-center gap-2 mb-1.5">
+          <ListChecks className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate">
+            Comece por aqui
+          </span>
+          <span className="ml-auto text-xs text-emerald-600 dark:text-emerald-400 shrink-0">
+            {concluidos}/{total}
+          </span>
+        </div>
+        <div className="h-1 w-full rounded-full bg-emerald-200 dark:bg-emerald-900 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </PopoverTrigger>
+      <PopoverContent side="right" align="end" className="w-72 p-0">
+        <div className="px-4 py-3 border-b">
+          <p className="text-sm font-semibold">Comece por aqui</p>
+          <p className="text-xs text-muted-foreground">{concluidos} de {total} completos</p>
+        </div>
+        <ul className="p-2 space-y-0.5">
+          {CHECKLIST_ITENS.map((item) => {
+            const feito = checklist[item.key]
+            const inner = (
+              <li
+                className={cn(
+                  'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors',
+                  feito
+                    ? 'text-muted-foreground'
+                    : 'hover:bg-muted/60 cursor-pointer font-medium',
+                )}
+              >
+                {feito
+                  ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                  : <Circle className="h-4 w-4 text-muted-foreground shrink-0" />}
+                <span className={feito ? 'line-through text-xs' : 'text-xs'}>{item.label}</span>
+              </li>
+            )
+            return feito ? (
+              <div key={item.key}>{inner}</div>
+            ) : (
+              <Link key={item.key} href={item.href}>{inner}</Link>
+            )
+          })}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -146,6 +216,11 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
+
+      {/* Widget checklist — visível enquanto não completo */}
+      <div className="flex-shrink-0 px-0 mb-2">
+        <ChecklistWidget />
+      </div>
 
       <Separator className="flex-shrink-0 my-3" />
 
