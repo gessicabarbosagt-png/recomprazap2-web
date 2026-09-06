@@ -59,7 +59,7 @@ function StatusEnvioIcon({ status }: { status?: string | null }) {
 }
 
 // Formata lista de produtos para exibição na tabela (trunca se muitos)
-function exibirProdutosTabela(produtos: CicloProduto[]): React.ReactNode {
+function exibirProdutosTabela(produtos: CicloProduto[]) {
   if (!produtos?.length) return <span className="text-muted-foreground">—</span>
   if (produtos.length <= 2) return <span>{produtos.map((p) => p.nome).join(', ')}</span>
   const todos = produtos.map((p) => p.nome).join(', ')
