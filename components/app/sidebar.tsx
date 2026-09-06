@@ -132,6 +132,11 @@ export function Sidebar() {
         )}
       </div>
 
+      {/* Widget checklist — visível enquanto não completo */}
+      <div className="flex-shrink-0 mb-2">
+        <ChecklistWidget />
+      </div>
+
       {usuario?.role === 'admin' ? (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
           <nav className="space-y-1">
@@ -216,11 +221,6 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
-
-      {/* Widget checklist — visível enquanto não completo */}
-      <div className="flex-shrink-0 px-0 mb-2">
-        <ChecklistWidget />
-      </div>
 
       <Separator className="flex-shrink-0 my-3" />
 
