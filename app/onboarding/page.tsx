@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
-import { Loader2, MessageCircle, CheckCircle2, ArrowRight, WifiOff } from 'lucide-react'
+import { Loader2, MessageCircle, CheckCircle2, ArrowRight, WifiOff, Settings } from 'lucide-react'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -82,11 +82,9 @@ export default function OnboardingPage() {
               <p className="text-sm text-muted-foreground">
                 Para enviar lembretes, o WhatsApp da sua loja precisa estar conectado. É rápido — basta escanear um QR Code pelo seu celular.
               </p>
-              <Button className="w-full" asChild>
-                <Link href="/configuracoes">
-                  Conectar WhatsApp agora
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
+              <Button className="w-full" onClick={() => router.push('/configuracoes')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Conectar WhatsApp agora
               </Button>
               <p className="text-xs text-center text-muted-foreground">
                 Após conectar, volte aqui para enviar o teste.
