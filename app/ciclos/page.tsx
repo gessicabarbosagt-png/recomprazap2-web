@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -23,30 +24,59 @@ import {
   CheckCircle2, XCircle, Clock,
 } from 'lucide-react'
 
+interface Produto { id: string; nome: string }
+interface CicloProduto { id: string; nome: string }
+
 interface Ciclo {
   id: string
   ativo: boolean
   intervaloDias: number
   quantidade?: string
+  horarioEnvio?: string
   proximaNotificacao?: string
   ultimaCompra?: string
   statusUltimoEnvio?: 'sucesso' | 'erro' | null
   clienteId: string
   clienteNome: string
   clienteTelefone: string
-  produtoId: string
-  produtoNome: string
+  produtos: CicloProduto[]
 }
 
 interface Cliente { id: string; nome: string; telefone: string }
-interface Produto { id: string; nome: string }
 
-const emptyForm = { clienteId: '', produtoId: '', intervaloDias: '30', quantidade: '' }
+const emptyForm = {
+  clienteId: '',
+  produtoIds: [] as string[],
+  intervaloDias: '30',
+  quantidade: '',
+  horarioEnvio: '09:00',
+}
 
 function StatusEnvioIcon({ status }: { status?: string | null }) {
   if (status === 'sucesso') return <CheckCircle2 className="h-4 w-4 text-green-500" />
   if (status === 'erro') return <XCircle className="h-4 w-4 text-red-500" />
   return <Clock className="h-4 w-4 text-muted-foreground" />
+}
+
+// Formata lista de produtos para exibição na tabela (trunca se muitos)
+function exibirProdutosTabela(produtos: CicloProduto[]): React.ReactNode {
+  if (!produtos?.length) return <span className="text-muted-foreground">—</span>
+  if (produtos.length <= 2) return <span>{produtos.map((p) => p.nome).join(', ')}</span>
+  const todos = produtos.map((p) => p.nome).join(', ')
+  return (
+    <span title={todos}>
+      {produtos[0].nome}{' '}
+      <span className="text-muted-foreground text-xs">+{produtos.length - 1}</span>
+    </span>
+  )
+}
+
+// Formata lista de nomes para prévia da mensagem
+function formatarProdutosMensagem(nomes: string[]): string {
+  if (nomes.length === 0) return ''
+  if (nomes.length === 1) return nomes[0]
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`
+  return nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1]
 }
 
 export default function CiclosPage() {
@@ -66,7 +96,7 @@ export default function CiclosPage() {
     resultados: { id: string; clienteNome: string; ok: boolean; erro?: string }[]
   } | null>(null)
 
-  const hojeISO = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+  const hojeISO = new Date().toLocaleDateString('en-CA')
 
   const vencidos = ciclos.filter(
     (c) => c.ativo && c.proximaNotificacao && c.proximaNotificacao.slice(0, 10) <= hojeISO,
@@ -100,17 +130,26 @@ export default function CiclosPage() {
     setEditing(ciclo)
     setForm({
       clienteId: ciclo.clienteId,
-      produtoId: ciclo.produtoId,
+      produtoIds: ciclo.produtos?.map((p) => p.id) ?? [],
       intervaloDias: String(ciclo.intervaloDias),
       quantidade: ciclo.quantidade != null ? String(ciclo.quantidade) : '',
+      horarioEnvio: ciclo.horarioEnvio ?? '09:00',
     })
     setOpen(true)
   }
 
+  function toggleProduto(produtoId: string) {
+    setForm((prev) => ({
+      ...prev,
+      produtoIds: prev.produtoIds.includes(produtoId)
+        ? prev.produtoIds.filter((id) => id !== produtoId)
+        : [...prev.produtoIds, produtoId],
+    }))
+  }
+
   async function handleSave() {
-    if (!editing && (!form.clienteId || !form.produtoId)) {
-      return toast.error('Selecione cliente e produto')
-    }
+    if (!editing && !form.clienteId) return toast.error('Selecione o cliente')
+    if (!form.produtoIds.length) return toast.error('Selecione pelo menos um produto')
     if (!form.intervaloDias || parseInt(form.intervaloDias) < 1) {
       return toast.error('Intervalo deve ser pelo menos 1 dia')
     }
@@ -119,10 +158,11 @@ export default function CiclosPage() {
       const payload: any = {
         intervaloDias: parseInt(form.intervaloDias),
         quantidade: form.quantidade.trim() || undefined,
+        horarioEnvio: form.horarioEnvio || '09:00',
+        produtoIds: form.produtoIds,
       }
       if (!editing) {
         payload.clienteId = form.clienteId
-        payload.produtoId = form.produtoId
         await api.post('/ciclos', payload)
         toast.success('Ciclo criado')
       } else {
@@ -199,7 +239,7 @@ export default function CiclosPage() {
 
   function proximaBadge(data?: string) {
     if (!data) return <span className="text-muted-foreground">—</span>
-    const dataISO = data.slice(0, 10) // YYYY-MM-DD sem a parte de hora
+    const dataISO = data.slice(0, 10)
     const diff = Math.round(
       (new Date(dataISO).getTime() - new Date(hojeISO).getTime()) / 86400000,
     )
@@ -208,6 +248,11 @@ export default function CiclosPage() {
     if (diff <= 3) return <Badge variant="outline" className="border-orange-400 text-orange-500">Em {diff}d</Badge>
     return <span className="text-sm">{formatDate(data)}</span>
   }
+
+  const produtosSelecionados = produtos.filter((p) => form.produtoIds.includes(p.id))
+  const previaMsg = produtosSelecionados.length > 0
+    ? formatarProdutosMensagem(produtosSelecionados.map((p) => p.nome))
+    : null
 
   return (
     <LayoutShell>
@@ -240,9 +285,10 @@ export default function CiclosPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Produto</TableHead>
+                <TableHead>Produto(s)</TableHead>
                 <TableHead>Intervalo</TableHead>
                 <TableHead>Qtde.</TableHead>
+                <TableHead>Horário</TableHead>
                 <TableHead>
                   <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Próx. lembrete</span>
                 </TableHead>
@@ -255,14 +301,14 @@ export default function CiclosPage() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : ciclos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
                     Nenhum ciclo cadastrado
                   </TableCell>
                 </TableRow>
@@ -273,9 +319,14 @@ export default function CiclosPage() {
                       <p className="font-medium">{c.clienteNome}</p>
                       <p className="text-xs text-muted-foreground">{c.clienteTelefone}</p>
                     </TableCell>
-                    <TableCell>{c.produtoNome}</TableCell>
+                    <TableCell>{exibirProdutosTabela(c.produtos)}</TableCell>
                     <TableCell>{c.intervaloDias}d</TableCell>
                     <TableCell>{c.quantidade ?? '—'}</TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {c.horarioEnvio ? c.horarioEnvio.slice(0, 5) : '—'}
+                      </span>
+                    </TableCell>
                     <TableCell>{proximaBadge(c.proximaNotificacao)}</TableCell>
                     <TableCell>
                       <Badge variant={c.ativo ? 'default' : 'secondary'}>
@@ -324,41 +375,55 @@ export default function CiclosPage() {
 
       {/* Modal: novo / editar ciclo */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar ciclo' : 'Novo ciclo de recompra'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {!editing && (
-              <>
-                <div className="space-y-1.5">
-                  <Label>Cliente *</Label>
-                  <Select value={form.clienteId} onValueChange={(v) => setForm({ ...form, clienteId: v ?? '' })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.nome} — {c.telefone}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Produto *</Label>
-                  <Select value={form.produtoId} onValueChange={(v) => setForm({ ...form, produtoId: v ?? '' })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o produto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {produtos.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
+              <div className="space-y-1.5">
+                <Label>Cliente *</Label>
+                <Select value={form.clienteId} onValueChange={(v) => setForm({ ...form, clienteId: v ?? '' })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientes.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome} — {c.telefone}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
+
+            {/* Multi-select de produtos */}
+            <div className="space-y-1.5">
+              <Label>Produto(s) *</Label>
+              <div className="rounded-md border divide-y max-h-44 overflow-y-auto">
+                {produtos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground px-3 py-2">Nenhum produto cadastrado</p>
+                ) : (
+                  produtos.map((p) => (
+                    <label
+                      key={p.id}
+                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 select-none"
+                    >
+                      <Checkbox
+                        checked={form.produtoIds.includes(p.id)}
+                        onCheckedChange={() => toggleProduto(p.id)}
+                      />
+                      <span className="text-sm">{p.nome}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              {form.produtoIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {form.produtoIds.length} produto{form.produtoIds.length !== 1 ? 's' : ''} selecionado{form.produtoIds.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label>Intervalo (dias) *</Label>
               <Input
@@ -370,6 +435,7 @@ export default function CiclosPage() {
               />
               <p className="text-xs text-muted-foreground">A cada quantos dias o cliente costuma comprar de novo</p>
             </div>
+
             <div className="space-y-1.5">
               <Label>Quantidade (opcional)</Label>
               <Input
@@ -379,20 +445,28 @@ export default function CiclosPage() {
                 onChange={(e) => setForm({ ...form, quantidade: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Como aparece na mensagem do lembrete. Ex: 2 kg, 1 pacote, 500g, 3 unidades
+                Como aparece na mensagem. Ex: 2 kg, 1 pacote, 500g
               </p>
             </div>
-            {(() => {
-              const prodNome = editing?.produtoNome ?? produtos.find((p) => p.id === form.produtoId)?.nome
-              if (!prodNome) return null
-              const qtdTexto = form.quantidade.trim() ? ` (${form.quantidade.trim()})` : ''
-              return (
-                <div className="rounded-md bg-muted px-3 py-2 text-sm">
-                  <p className="text-xs text-muted-foreground mb-1">Prévia na mensagem de lembrete:</p>
-                  <p>Já está na hora de repor <strong>{prodNome}</strong>{qtdTexto}.</p>
-                </div>
-              )
-            })()}
+
+            <div className="space-y-1.5">
+              <Label>Horário de envio automático</Label>
+              <Input
+                type="time"
+                value={form.horarioEnvio}
+                onChange={(e) => setForm({ ...form, horarioEnvio: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                O disparo automático só ocorre após este horário (fuso de SP/BRT). Envios manuais funcionam a qualquer hora.
+              </p>
+            </div>
+
+            {previaMsg && (
+              <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                <p className="text-xs text-muted-foreground mb-1">Prévia na mensagem de lembrete:</p>
+                <p>Já está na hora de repor <strong>{previaMsg}</strong>{form.quantidade.trim() ? ` (${form.quantidade.trim()})` : ''}.</p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
@@ -449,7 +523,9 @@ export default function CiclosPage() {
                   <div key={c.id} className="text-sm flex items-center gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground shrink-0" />
                     <span>{c.clienteNome}</span>
-                    <span className="text-muted-foreground text-xs">— {c.produtoNome}</span>
+                    <span className="text-muted-foreground text-xs">
+                      — {c.produtos?.map((p) => p.nome).join(', ') ?? ''}
+                    </span>
                   </div>
                 ))}
               </div>
