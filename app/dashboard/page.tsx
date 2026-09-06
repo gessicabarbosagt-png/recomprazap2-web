@@ -64,6 +64,7 @@ interface SerieTemporal {
 }
 interface EtapaResumo { id: string; nome: string; ordem: number; tipo: string; total: number }
 interface Checklist {
+  waConectado: boolean
   testEnviado: boolean
   produtosSuficientes: boolean
   clientesSuficientes: boolean
@@ -374,6 +375,11 @@ export default function DashboardPage() {
         {/* ── Checklist de onboarding (esconde quando completo) ────────── */}
         {checklist && !checklist.completo && (() => {
           const itens = [
+            {
+              label: 'Conecte seu WhatsApp',
+              feito: checklist.waConectado,
+              href: '/configuracoes',
+            },
             {
               label: 'Envie seu lembrete de teste',
               feito: checklist.testEnviado,

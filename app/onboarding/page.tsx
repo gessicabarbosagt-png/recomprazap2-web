@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
-import { Loader2, MessageCircle, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Loader2, MessageCircle, CheckCircle2, ArrowRight, WifiOff } from 'lucide-react'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -18,14 +18,16 @@ export default function OnboardingPage() {
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [verificando, setVerificando] = useState(true)
+  const [waConectado, setWaConectado] = useState(false)
 
   useEffect(() => {
-    api.get('/onboarding/checklist')
-      .then((r) => {
-        if (r.data?.testEnviado) setEnviado(true)
-      })
-      .catch(() => {})
-      .finally(() => setVerificando(false))
+    Promise.all([
+      api.get('/onboarding/checklist').catch(() => null),
+      api.get('/whatsapp/status').catch(() => null),
+    ]).then(([checklist, wa]) => {
+      if (checklist?.data?.testEnviado) setEnviado(true)
+      setWaConectado(wa?.data?.status === 'conectado')
+    }).finally(() => setVerificando(false))
   }, [])
 
   async function handleEnviar() {
@@ -63,70 +65,91 @@ export default function OnboardingPage() {
           </div>
           <h1 className="text-2xl font-bold">Veja como funciona</h1>
           <p className="text-muted-foreground text-sm">
-            Envie um lembrete de teste para o seu próprio WhatsApp e veja exatamente como seus clientes recebem os avisos de recompra.
+            Envie um lembrete de teste para qualquer número de WhatsApp — inclusive o seu próprio — e veja exatamente como seus clientes recebem os avisos.
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {enviado ? 'Lembrete enviado com sucesso!' : 'Enviar lembrete de teste'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {enviado ? (
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>
-                    A mensagem foi enviada. Verifique seu WhatsApp — é exatamente assim que seus clientes vão receber os lembretes.
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setEnviado(false)}
-                  >
-                    Enviar novamente
-                  </Button>
-                  <Button className="flex-1" onClick={() => router.push('/dashboard')}>
-                    Ir para o Dashboard
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
+        {!waConectado ? (
+          /* ── WhatsApp não conectado ─────────────────────────────── */
+          <Card className="border-2 border-orange-200 dark:border-orange-900">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <WifiOff className="h-5 w-5 text-orange-500 shrink-0" />
+                <CardTitle className="text-base">Primeiro, conecte o WhatsApp da sua loja</CardTitle>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="telefone">Seu número de WhatsApp</Label>
-                  <Input
-                    id="telefone"
-                    type="tel"
-                    placeholder="(11) 98765-4321"
-                    value={telefone}
-                    onChange={(e) => setTelefone(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleEnviar()}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Com DDD, sem o +55. Ex: 11 98765-4321
-                  </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Para enviar lembretes, o WhatsApp da sua loja precisa estar conectado. É rápido — basta escanear um QR Code pelo seu celular.
+              </p>
+              <Button className="w-full" asChild>
+                <Link href="/configuracoes">
+                  Conectar WhatsApp agora
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Após conectar, volte aqui para enviar o teste.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          /* ── WhatsApp conectado — mostrar formulário ──────────── */
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {enviado ? 'Lembrete enviado com sucesso!' : 'Enviar lembrete de teste'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {enviado ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      A mensagem foi enviada. Verifique o WhatsApp — é exatamente assim que seus clientes vão receber os lembretes.
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setEnviado(false)}
+                    >
+                      Enviar novamente
+                    </Button>
+                    <Button className="flex-1" onClick={() => router.push('/dashboard')}>
+                      Ir para o Dashboard
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <Button className="w-full" onClick={handleEnviar} disabled={enviando}>
-                  {enviando
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
-                    : <><MessageCircle className="mr-2 h-4 w-4" />Enviar lembrete de teste</>}
-                </Button>
-                <p className="text-xs text-center text-muted-foreground">
-                  O WhatsApp da sua loja precisa estar conectado.{' '}
-                  <Link href="/configuracoes" className="underline">
-                    Conectar agora
-                  </Link>
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="telefone">Número de WhatsApp para o teste</Label>
+                    <Input
+                      id="telefone"
+                      type="tel"
+                      placeholder="(11) 98765-4321"
+                      value={telefone}
+                      onChange={(e) => setTelefone(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleEnviar()}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pode ser o seu próprio celular. Com DDD, sem o +55. Ex: 11 98765-4321
+                    </p>
+                  </div>
+                  <Button className="w-full" onClick={handleEnviar} disabled={enviando}>
+                    {enviando
+                      ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+                      : <><MessageCircle className="mr-2 h-4 w-4" />Enviar lembrete de teste</>}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <p className="text-center text-xs text-muted-foreground">
           <Link href="/dashboard" className="hover:underline">
