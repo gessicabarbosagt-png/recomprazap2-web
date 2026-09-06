@@ -17,7 +17,7 @@ import {
   Users, Package, RefreshCw, Bell, ShoppingBag,
   TrendingUp, TrendingDown, CircleDollarSign, FileDown, Loader2,
   Tag, Layers,
-  ArrowUpRight, Minus,
+  ArrowUpRight, Minus, CheckCircle2, Circle,
 } from 'lucide-react'
 import {
   PeriodSelector, PeriodValue, periodValueToApiParams,
@@ -63,6 +63,13 @@ interface SerieTemporal {
   variacaoVendas: number; variacaoReceita: number
 }
 interface EtapaResumo { id: string; nome: string; ordem: number; tipo: string; total: number }
+interface Checklist {
+  testEnviado: boolean
+  produtosSuficientes: boolean
+  clientesSuficientes: boolean
+  pagamentoConfigurado: boolean
+  completo: boolean
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -217,6 +224,7 @@ export default function DashboardPage() {
   const [serie, setSerie]                     = useState<SerieTemporal | null>(null)
   const [etapasResumo, setEtapasResumo]       = useState<EtapaResumo[] | null>(null)
   const [nomeLoja, setNomeLoja]               = useState('')
+  const [checklist, setChecklist]             = useState<Checklist | null>(null)
   const [loading, setLoading]                 = useState(true)
   const [loadingPDF, setLoadingPDF]           = useState(false)
   const [vendasPDF, setVendasPDF]             = useState<VendaConfirmada[]>([])
@@ -229,6 +237,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     api.get('/lojas/minha').then(r => setNomeLoja(r.data.nome ?? '')).catch(() => {})
+    api.get('/onboarding/checklist').then(r => setChecklist(r.data)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -361,6 +370,75 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
+
+        {/* ── Checklist de onboarding (esconde quando completo) ────────── */}
+        {checklist && !checklist.completo && (() => {
+          const itens = [
+            {
+              label: 'Envie seu lembrete de teste',
+              feito: checklist.testEnviado,
+              href: '/onboarding',
+            },
+            {
+              label: 'Adicione mais produtos com ciclo de recompra',
+              feito: checklist.produtosSuficientes,
+              href: '/produtos',
+            },
+            {
+              label: 'Importe sua base de clientes',
+              feito: checklist.clientesSuficientes,
+              href: '/clientes',
+            },
+            {
+              label: 'Adicione uma forma de pagamento',
+              feito: checklist.pagamentoConfigurado,
+              href: '/plano',
+            },
+          ]
+          const concluidos = itens.filter(i => i.feito).length
+          const pct = Math.round((concluidos / itens.length) * 100)
+          return (
+            <Card className="border-2 border-emerald-200 dark:border-emerald-900">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Comece por aqui</CardTitle>
+                  <span className="text-xs text-muted-foreground">{concluidos} de {itens.length} completos</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mt-1">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <ul className="space-y-2">
+                  {itens.map((item) => {
+                    const inner = (
+                      <li
+                        key={item.label}
+                        className={cn(
+                          'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors',
+                          item.feito
+                            ? 'text-muted-foreground'
+                            : 'hover:bg-muted/60 cursor-pointer font-medium',
+                        )}
+                      >
+                        {item.feito
+                          ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                          : <Circle className="h-4 w-4 text-muted-foreground shrink-0" />}
+                        <span className={item.feito ? 'line-through' : ''}>{item.label}</span>
+                      </li>
+                    )
+                    return item.feito ? inner : (
+                      <Link key={item.label} href={item.href}>{inner}</Link>
+                    )
+                  })}
+                </ul>
+              </CardContent>
+            </Card>
+          )
+        })()}
 
         {/* ── Cards do topo (5 métricas) ────────────────────────────────── */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
