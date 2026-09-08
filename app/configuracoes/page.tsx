@@ -432,6 +432,7 @@ export default function ConfiguracoesPage() {
                     value={metaForm.pixelId}
                     onChange={e => setMetaForm(f => ({ ...f, pixelId: e.target.value }))}
                     placeholder="123456789012345"
+                    autoComplete="off"
                   />
                 </div>
 
@@ -457,6 +458,7 @@ export default function ConfiguracoesPage() {
                             ? 'Deixe em branco para manter o atual'
                             : 'Cole o token gerado no Meta Business Manager'
                       }
+                      autoComplete="new-password"
                       className="flex-1"
                     />
                     {metaConfig?.temToken && (

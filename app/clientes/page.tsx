@@ -15,8 +15,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
-  Plus, Pencil, Trash2, Loader2, Download, Upload, FileText, CheckCircle2, XCircle, AlertTriangle,
+  Plus, Pencil, Trash2, Loader2, Download, Upload, FileText, CheckCircle2, XCircle, AlertTriangle, MessageCircle,
 } from 'lucide-react'
 
 interface Cliente {
@@ -101,6 +102,14 @@ export default function ClientesPage() {
 
   // ── Export ───────────────────────────────────────────────────────────
   const [exportando, setExportando] = useState(false)
+
+  // ── Importar do WhatsApp ─────────────────────────────────────────────
+  interface ContatoWA { telefone: string; nome: string | null }
+  const [waOpen, setWaOpen] = useState(false)
+  const [waContatos, setWaContatos] = useState<ContatoWA[]>([])
+  const [waSelecionados, setWaSelecionados] = useState<Set<string>>(new Set())
+  const [waCarregando, setWaCarregando] = useState(false)
+  const [waImportando, setWaImportando] = useState(false)
 
   async function load() {
     try {
@@ -227,6 +236,60 @@ export default function ClientesPage() {
     setResultadoImport(null)
   }
 
+  // ── Importar do WhatsApp ─────────────────────────────────────────────
+
+  async function abrirImportarWA() {
+    setWaContatos([])
+    setWaSelecionados(new Set())
+    setWaOpen(true)
+    setWaCarregando(true)
+    try {
+      const { data } = await api.get('/clientes/importar-whatsapp')
+      setWaContatos(data)
+    } catch (err: any) {
+      const msg = err.response?.data?.message ?? 'Erro ao carregar contatos do WhatsApp'
+      toast.error(msg)
+      setWaOpen(false)
+    } finally {
+      setWaCarregando(false)
+    }
+  }
+
+  function toggleWaContato(telefone: string) {
+    setWaSelecionados((prev) => {
+      const next = new Set(prev)
+      if (next.has(telefone)) next.delete(telefone)
+      else next.add(telefone)
+      return next
+    })
+  }
+
+  function toggleTodosWA() {
+    if (waSelecionados.size === waContatos.length) {
+      setWaSelecionados(new Set())
+    } else {
+      setWaSelecionados(new Set(waContatos.map((c) => c.telefone)))
+    }
+  }
+
+  async function handleImportarWA() {
+    if (waSelecionados.size === 0) return toast.error('Selecione ao menos um contato')
+    setWaImportando(true)
+    try {
+      const contatos = waContatos
+        .filter((c) => waSelecionados.has(c.telefone))
+        .map((c) => ({ telefone: c.telefone, nome: c.nome }))
+      const { data } = await api.post('/clientes/importar-whatsapp', { contatos })
+      toast.success(`${data.importados} cliente${data.importados !== 1 ? 's' : ''} importado${data.importados !== 1 ? 's' : ''}`)
+      setWaOpen(false)
+      load()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Erro ao importar contatos')
+    } finally {
+      setWaImportando(false)
+    }
+  }
+
   return (
     <LayoutShell>
       <div className="space-y-6">
@@ -245,6 +308,10 @@ export default function ClientesPage() {
             <Button variant="outline" size="sm" onClick={abrirImportar}>
               <Upload className="h-4 w-4 mr-2" />
               Importar CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={abrirImportarWA}>
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Importar do WhatsApp
             </Button>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" />
@@ -461,6 +528,78 @@ export default function ClientesPage() {
                 {importando
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando…</>
                   : <><Upload className="mr-2 h-4 w-4" />Importar</>
+                }
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: importar do WhatsApp ───────────────────────────── */}
+      <Dialog open={waOpen} onOpenChange={(v) => { if (!waImportando) setWaOpen(v) }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Importar contatos do WhatsApp</DialogTitle>
+          </DialogHeader>
+
+          {waCarregando ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : waContatos.length === 0 ? (
+            <div className="py-8 text-center space-y-2">
+              <MessageCircle className="h-10 w-10 mx-auto text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                Nenhum contato encontrado. Os contatos são sincronizados automaticamente quando o WhatsApp está conectado — reconecte-o em <strong>Configurações</strong> para atualizar a lista.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3 py-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{waContatos.length} contato{waContatos.length !== 1 ? 's' : ''} disponível{waContatos.length !== 1 ? 'is' : ''} (não cadastrados ainda)</span>
+                <button
+                  type="button"
+                  onClick={toggleTodosWA}
+                  className="text-primary underline-offset-2 hover:underline text-xs"
+                >
+                  {waSelecionados.size === waContatos.length ? 'Desmarcar todos' : 'Selecionar todos'}
+                </button>
+              </div>
+              <div className="rounded-md border divide-y max-h-72 overflow-y-auto">
+                {waContatos.map((c) => (
+                  <label
+                    key={c.telefone}
+                    className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 select-none"
+                  >
+                    <Checkbox
+                      checked={waSelecionados.has(c.telefone)}
+                      onCheckedChange={() => toggleWaContato(c.telefone)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      {c.nome && <p className="text-sm font-medium truncate">{c.nome}</p>}
+                      <p className="text-xs text-muted-foreground">{c.telefone}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              {waSelecionados.size > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {waSelecionados.size} selecionado{waSelecionados.size !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setWaOpen(false)} disabled={waImportando}>Cancelar</Button>
+            {waContatos.length > 0 && (
+              <Button
+                onClick={handleImportarWA}
+                disabled={waSelecionados.size === 0 || waImportando}
+              >
+                {waImportando
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando…</>
+                  : <>Importar {waSelecionados.size > 0 ? waSelecionados.size : ''} contato{waSelecionados.size !== 1 ? 's' : ''}</>
                 }
               </Button>
             )}

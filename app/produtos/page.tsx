@@ -17,18 +17,19 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import { Plus, Pencil, Trash2, Loader2, Upload, RefreshCw, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Upload, RefreshCw, X, AlertTriangle } from 'lucide-react'
 
 interface Produto {
   id: string
   nome: string
   descricao?: string
   preco?: number
-  unidade?: string
+  especificacao?: string
+  estoque?: number | null
   ativo: boolean
 }
 
-const empty = { nome: '', descricao: '', preco: '', unidade: '' }
+const empty = { nome: '', descricao: '', preco: '', especificacao: '', estoque: '' }
 
 interface CsvRow {
   nome: string
@@ -64,6 +65,13 @@ function parsePreco(raw: string): number | undefined {
   return isNaN(n) ? undefined : n
 }
 
+function EstoqueBadge({ estoque }: { estoque?: number | null }) {
+  if (estoque == null) return null
+  if (estoque === 0) return <Badge variant="destructive" className="text-xs">Sem estoque</Badge>
+  if (estoque <= 3) return <Badge className="text-xs bg-amber-500 hover:bg-amber-500 text-white">Estoque baixo</Badge>
+  return null
+}
+
 export default function ProdutosPage() {
   const { refetch: refetchChecklist } = useChecklist()
   const [produtos, setProdutos] = useState<Produto[]>([])
@@ -75,7 +83,8 @@ export default function ProdutosPage() {
   const [csvOpen, setCsvOpen] = useState(false)
   const [csvRows, setCsvRows] = useState<CsvRow[]>([])
   const [csvImporting, setCsvImporting] = useState(false)
-  // Nudge: produto recém-criado aguardando ciclo
+  const [filtroEstoqueBaixo, setFiltroEstoqueBaixo] = useState(false)
+  // Nudge: produto recém-criado
   const [nudgeProduto, setNudgeProduto] = useState<{ id: string; nome: string } | null>(null)
 
   async function load() {
@@ -91,6 +100,10 @@ export default function ProdutosPage() {
 
   useEffect(() => { load() }, [])
 
+  const produtosFiltrados = filtroEstoqueBaixo
+    ? produtos.filter((p) => p.estoque != null && p.estoque <= 3)
+    : produtos
+
   function openCreate() {
     setEditing(null)
     setForm(empty)
@@ -103,7 +116,8 @@ export default function ProdutosPage() {
       nome: p.nome,
       descricao: p.descricao ?? '',
       preco: p.preco != null ? String(p.preco) : '',
-      unidade: p.unidade ?? '',
+      especificacao: p.especificacao ?? '',
+      estoque: p.estoque != null ? String(p.estoque) : '',
     })
     setOpen(true)
   }
@@ -116,7 +130,8 @@ export default function ProdutosPage() {
         nome: form.nome,
         descricao: form.descricao || undefined,
         preco: form.preco ? parseFloat(form.preco) : undefined,
-        unidade: form.unidade || undefined,
+        especificacao: form.especificacao || undefined,
+        estoque: form.estoque !== '' ? parseFloat(form.estoque) : null,
       }
       if (editing) {
         await api.patch(`/produtos/${editing.id}`, payload)
@@ -196,6 +211,8 @@ export default function ProdutosPage() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p)
   }
 
+  const totalEstoqueBaixo = produtos.filter((p) => p.estoque != null && p.estoque <= 3).length
+
   return (
     <LayoutShell>
       <div className="space-y-6">
@@ -216,26 +233,45 @@ export default function ProdutosPage() {
           </div>
         </div>
 
-        {/* Nudge: configurar ciclo após criar produto */}
+        {/* Nudge: cadastrar clientes após criar produto */}
         {nudgeProduto && (
           <div className="flex items-center gap-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/30 px-4 py-3">
             <RefreshCw className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <p className="text-sm flex-1">
               <span className="font-medium">{nudgeProduto.nome}</span> criado com sucesso!
-              {' '}Quer configurar um ciclo de recompra para ele agora?
+              {' '}Agora cadastre seus clientes para poder criar ciclos de recompra.
             </p>
             <Link
-              href={`/ciclos?produtoId=${nudgeProduto.id}`}
+              href="/clientes"
               className="shrink-0 text-sm font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
               onClick={() => setNudgeProduto(null)}
             >
-              Criar ciclo →
+              Cadastrar clientes →
             </Link>
             <button
               onClick={() => setNudgeProduto(null)}
               className="shrink-0 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Filtro estoque baixo */}
+        {totalEstoqueBaixo > 0 && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setFiltroEstoqueBaixo((v) => !v)}
+              className={`flex items-center gap-2 text-sm rounded-md px-3 py-1.5 border transition-colors ${
+                filtroEstoqueBaixo
+                  ? 'bg-amber-100 dark:bg-amber-950/40 border-amber-400 text-amber-800 dark:text-amber-300'
+                  : 'border-muted-foreground/30 text-muted-foreground hover:border-amber-400 hover:text-amber-700'
+              }`}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {filtroEstoqueBaixo
+                ? `Mostrando ${totalEstoqueBaixo} com estoque baixo — limpar filtro`
+                : `Filtrar por estoque baixo (${totalEstoqueBaixo})`}
             </button>
           </div>
         )}
@@ -247,7 +283,8 @@ export default function ProdutosPage() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead>Preço</TableHead>
-                <TableHead>Unidade</TableHead>
+                <TableHead>Especificação</TableHead>
+                <TableHead>Estoque</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
@@ -256,24 +293,32 @@ export default function ProdutosPage() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 6 }).map((_, j) => (
+                    {Array.from({ length: 7 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
-              ) : produtos.length === 0 ? (
+              ) : produtosFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
-                    Nenhum produto cadastrado
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                    {filtroEstoqueBaixo ? 'Nenhum produto com estoque baixo' : 'Nenhum produto cadastrado'}
                   </TableCell>
                 </TableRow>
               ) : (
-                produtos.map((p) => (
+                produtosFiltrados.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.nome}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="flex items-center gap-2">
+                        {p.nome}
+                        <EstoqueBadge estoque={p.estoque} />
+                      </span>
+                    </TableCell>
                     <TableCell className="text-muted-foreground max-w-xs truncate">{p.descricao || '—'}</TableCell>
                     <TableCell>{formatPreco(p.preco)}</TableCell>
-                    <TableCell>{p.unidade || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{p.especificacao || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {p.estoque != null ? p.estoque : '—'}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={p.ativo ? 'default' : 'secondary'}>
                         {p.ativo ? 'Ativo' : 'Inativo'}
@@ -317,9 +362,23 @@ export default function ProdutosPage() {
                 <Input type="number" step="0.01" min="0" value={form.preco} onChange={(e) => setForm({ ...form, preco: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Unidade</Label>
-                <Input placeholder="kg, un, pct..." value={form.unidade} onChange={(e) => setForm({ ...form, unidade: e.target.value })} />
+                <Label>Especificação</Label>
+                <Input placeholder="ex: 1kg, 500g, pacote com 6" value={form.especificacao} onChange={(e) => setForm({ ...form, especificacao: e.target.value })} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Estoque</Label>
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                placeholder="Deixe em branco para não controlar"
+                value={form.estoque}
+                onChange={(e) => setForm({ ...form, estoque: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Opcional. Será decrementado automaticamente quando um pedido for confirmado como comprado.
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -331,6 +390,7 @@ export default function ProdutosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       <Dialog open={csvOpen} onOpenChange={(v) => { setCsvOpen(v); if (!v) setCsvRows([]) }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
