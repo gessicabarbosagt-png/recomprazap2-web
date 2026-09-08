@@ -43,6 +43,8 @@ export default function ConfiguracoesPage() {
   const [metaForm, setMetaForm] = useState({ pixelId: '', accessToken: '', ativa: false, eventosAtivos: ['lead_ctwa'] as string[] })
   const [salvandoMeta, setSalvandoMeta] = useState(false)
   const [limpandoToken, setLimpandoToken] = useState(false)
+  // true somente quando o token foi configurado NESTA sessão (distingue "token existia ao carregar" de "acabou de salvar")
+  const [tokenConfiguradoAgora, setTokenConfiguradoAgora] = useState(false)
 
   // ── WhatsApp ───────────────────────────────────────────────────────
   const [status, setStatus] = useState<Status>('desconectado')
@@ -173,6 +175,7 @@ export default function ConfiguracoesPage() {
   async function salvarMetaAds(e: React.FormEvent) {
     e.preventDefault()
     setSalvandoMeta(true)
+    const eraPrimeiraConfig = !metaConfig?.temToken
     try {
       const payload: Record<string, unknown> = {
         pixelId: metaForm.pixelId || null,
@@ -183,6 +186,7 @@ export default function ConfiguracoesPage() {
       const { data } = await api.patch('/lojas/minha/meta-ads', payload)
       setMetaConfig(data)
       setMetaForm(f => ({ ...f, accessToken: '' }))
+      if (eraPrimeiraConfig && data.temToken) setTokenConfiguradoAgora(true)
       toast.success('Configuração Meta Ads salva')
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Erro ao salvar')
@@ -197,6 +201,7 @@ export default function ConfiguracoesPage() {
     try {
       await api.delete('/lojas/minha/meta-ads/token')
       await buscarMetaConfig()
+      setTokenConfiguradoAgora(false)
       toast.success('Token removido')
     } catch {
       toast.error('Erro ao remover token')
@@ -433,8 +438,11 @@ export default function ConfiguracoesPage() {
                 <div className="space-y-1.5">
                   <Label>
                     Access Token (Conversions API)
-                    {metaConfig?.temToken && (
+                    {metaConfig?.temToken && !tokenConfiguradoAgora && (
                       <span className="ml-2 text-xs text-emerald-600 font-normal">token salvo</span>
+                    )}
+                    {tokenConfiguradoAgora && (
+                      <span className="ml-2 text-xs text-emerald-600 font-normal">✓ token configurado com sucesso</span>
                     )}
                   </Label>
                   <div className="flex gap-2">
@@ -442,7 +450,13 @@ export default function ConfiguracoesPage() {
                       type="password"
                       value={metaForm.accessToken}
                       onChange={e => setMetaForm(f => ({ ...f, accessToken: e.target.value }))}
-                      placeholder={metaConfig?.temToken ? 'Deixe em branco para manter o atual' : 'Cole o token gerado no Meta Business Manager'}
+                      placeholder={
+                        tokenConfiguradoAgora
+                          ? 'Token configurado — deixe em branco para manter'
+                          : metaConfig?.temToken
+                            ? 'Deixe em branco para manter o atual'
+                            : 'Cole o token gerado no Meta Business Manager'
+                      }
                       className="flex-1"
                     />
                     {metaConfig?.temToken && (

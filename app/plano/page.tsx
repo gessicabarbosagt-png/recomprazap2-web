@@ -724,27 +724,15 @@ export default function PlanoPage() {
           <DialogHeader>
             <DialogTitle>Como podemos ajudar?</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="flex justify-center mt-4">
             <a href="https://wa.me/5511983202160" target="_blank" rel="noopener noreferrer">
-              <div className="flex flex-col items-center gap-3 p-6 rounded-lg border hover:bg-accent transition-colors cursor-pointer text-center">
+              <div className="flex flex-col items-center gap-3 p-6 rounded-lg border hover:bg-accent transition-colors cursor-pointer text-center w-48">
                 <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
                   <MessageCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
                   <p className="font-medium text-sm">Falar no WhatsApp</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Resposta rápida</p>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-            </a>
-            <a href="https://calendly.com/gessicabarbosa-gt" target="_blank" rel="noopener noreferrer">
-              <div className="flex flex-col items-center gap-3 p-6 rounded-lg border hover:bg-accent transition-colors cursor-pointer text-center">
-                <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
-                  <CalendarDays className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">Agendar demonstração</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Conheça mais</p>
                 </div>
                 <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
