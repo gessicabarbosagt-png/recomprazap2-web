@@ -234,38 +234,50 @@ export default function DashboardPage() {
     api.get('/lojas/minha').then(r => setNomeLoja(r.data.nome ?? '')).catch(() => {})
   }, [])
 
+  const loadDashboard = useCallback(async (pq: string) => {
+    setLoading(true)
+    try {
+      const [lembretes, pedidos, clientes, produtos, ciclos, origensData, jornadaData, serieData, etapasData] =
+        await Promise.all([
+          api.get(`/lembretes/resumo${pq ? '?' + pq : ''}`),
+          api.get(`/pedidos/resumo${pq ? '?' + pq : ''}`),
+          api.get('/clientes'),
+          api.get('/produtos'),
+          api.get('/ciclos'),
+          api.get(`/clientes/origens${pq ? '?' + pq : ''}`),
+          api.get(`/pedidos/resumo-jornada${pq ? '?' + pq : ''}`),
+          api.get(`/dashboard/serie-temporal${pq ? '?' + pq : ''}`),
+          api.get(`/dashboard/etapas-resumo${pq ? '?' + pq : ''}`),
+        ])
+      setLembretesResumo(lembretes.data)
+      setPedidosResumo(pedidos.data)
+      setTotalClientes(clientes.data.length)
+      setTotalProdutos(produtos.data.length)
+      setTotalCiclos(ciclos.data.length)
+      setOrigens(Array.isArray(origensData.data) ? origensData.data : null)
+      setJornada(jornadaData.data)
+      setSerie(serieData.data)
+      setEtapasResumo(Array.isArray(etapasData.data) ? etapasData.data : [])
+    } catch { /* silent */ } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     const pq = buildPeriodQuery(period)
-    async function load() {
-      setLoading(true)
-      try {
-        const [lembretes, pedidos, clientes, produtos, ciclos, origensData, jornadaData, serieData, etapasData] =
-          await Promise.all([
-            api.get(`/lembretes/resumo${pq ? '?' + pq : ''}`),
-            api.get(`/pedidos/resumo${pq ? '?' + pq : ''}`),
-            api.get('/clientes'),
-            api.get('/produtos'),
-            api.get('/ciclos'),
-            api.get(`/clientes/origens${pq ? '?' + pq : ''}`),
-            api.get(`/pedidos/resumo-jornada${pq ? '?' + pq : ''}`),
-            api.get(`/dashboard/serie-temporal${pq ? '?' + pq : ''}`),
-            api.get(`/dashboard/etapas-resumo${pq ? '?' + pq : ''}`),
-          ])
-        setLembretesResumo(lembretes.data)
-        setPedidosResumo(pedidos.data)
-        setTotalClientes(clientes.data.length)
-        setTotalProdutos(produtos.data.length)
-        setTotalCiclos(ciclos.data.length)
-        setOrigens(Array.isArray(origensData.data) ? origensData.data : null)
-        setJornada(jornadaData.data)
-        setSerie(serieData.data)
-        setEtapasResumo(Array.isArray(etapasData.data) ? etapasData.data : [])
-      } catch { /* silent */ } finally {
-        setLoading(false)
+    loadDashboard(pq)
+  }, [period, loadDashboard])
+
+  // Refetch ciclos (e demais contadores) ao voltar para a aba — evita contagem stale após deletar
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) {
+        api.get('/ciclos').then(r => setTotalCiclos(r.data.length)).catch(() => {})
       }
     }
-    load()
-  }, [period])
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   function cardLink(extra: Record<string, string> = {}) {
     const p = periodValueToUrlParams(period)
@@ -288,21 +300,23 @@ export default function DashboardPage() {
 
   const primeiroNome = usuario?.nome?.split(' ')[0] ?? ''
 
-  const cards = [
+  const cards: { title: string; value: number | null | undefined; icon: any; desc: string; href?: string }[] = [
     { title: 'Clientes',      value: totalClientes, icon: Users,       desc: 'cadastrados' },
     { title: 'Produtos',      value: totalProdutos, icon: Package,     desc: 'no catálogo' },
     { title: 'Ciclos ativos', value: totalCiclos,   icon: RefreshCw,   desc: 'em andamento' },
     {
-      title: `Lembretes`,
+      title: 'Lembretes',
       value: lembretesResumo?.total,
       icon: Bell,
       desc: `${lembretesResumo?.enviados ?? '—'} enviados`,
     },
     {
-      title: `Pedidos`,
-      value: pedidosResumo?.total,
+      // totalCompras = vendas confirmadas (final_comprou) no período — mesmo critério de /pedidos
+      title: 'Pedidos',
+      value: jornada?.totalCompras,
       icon: ShoppingBag,
       desc: `${pedidosResumo?.pendentes ?? '—'} pendentes`,
+      href: cardLink(),
     },
   ]
 
@@ -415,10 +429,10 @@ export default function DashboardPage() {
 
         {/* ── Cards do topo (5 métricas) ────────────────────────────────── */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {cards.map(({ title, value, icon: Icon, desc }, i) => {
+          {cards.map(({ title, value, icon: Icon, desc, href }, i) => {
             const { bg, icon: iconCn } = CARD_COLORS[i]
-            return (
-              <Card key={title} className="relative overflow-hidden">
+            const cardEl = (
+              <Card key={title} className={cn('relative overflow-hidden', href && 'hover:shadow-md transition-shadow cursor-pointer')}>
                 <CardContent className="pt-5 pb-4 px-5">
                   <div className="flex items-start justify-between mb-3">
                     <div className={cn('h-10 w-10 rounded-full flex items-center justify-center', bg)}>
@@ -434,6 +448,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             )
+            return href ? <Link key={title} href={href}>{cardEl}</Link> : cardEl
           })}
         </div>
 
