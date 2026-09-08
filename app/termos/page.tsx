@@ -66,7 +66,7 @@ export default function TermosPage() {
             <h2 className="text-base font-semibold mb-2">3. Pagamento</h2>
             <p className="text-sm text-muted-foreground">
               O valor da mensalidade e a data de vencimento são acordados individualmente com cada Cliente e informados
-              no ato da contratação. O pagamento é processado via Mercado Pago (Pix ou cartão de crédito recorrente).
+              no ato da contratação. O pagamento é processado via Stripe (cartão de crédito, com cobrança recorrente mensal).
             </p>
             <p className="text-sm text-muted-foreground mt-2">
               Em caso de atraso no pagamento, enviaremos avisos diários ao Cliente. Caso o pagamento não seja
