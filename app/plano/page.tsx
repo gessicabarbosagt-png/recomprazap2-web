@@ -145,8 +145,20 @@ export default function PlanoPage() {
 
   useEffect(() => { carregarDados() }, [carregarDados])
 
-  // Exibe toast quando Stripe redireciona de volta com ?sucesso=true ou ?cancelado=true
+  // Garante que o botão nunca fique preso em "Redirecionando…" quando o usuário
+  // volta do Stripe. Há dois caminhos de retorno:
+  //   1. Redirect explícito (?sucesso=true / ?cancelado=true) → full navigation,
+  //      React remonta, useEffect dispara → setProcessando(false) abaixo cobre.
+  //   2. Botão "voltar" do navegador → bfcache restaura a página sem remontar,
+  //      useEffect NÃO dispara → pageshow com persisted=true cobre.
   useEffect(() => {
+    setProcessando(false)
+
+    function onPageShow(e: PageTransitionEvent) {
+      if (e.persisted) setProcessando(false)
+    }
+    window.addEventListener('pageshow', onPageShow)
+
     const params = new URLSearchParams(window.location.search)
     if (params.get('sucesso') === 'true') {
       toast.success('Assinatura criada com sucesso! Obrigado.')
@@ -155,6 +167,8 @@ export default function PlanoPage() {
       toast.info('Pagamento cancelado. Volte quando quiser para assinar.')
       window.history.replaceState({}, '', '/plano')
     }
+
+    return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
   async function handleUpgrade(planoSlug: string) {
