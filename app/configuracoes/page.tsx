@@ -21,7 +21,7 @@ import { Loader2, Wifi, WifiOff, RefreshCw, Eye, User, AlertTriangle, Megaphone,
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
-type Status = 'conectado' | 'desconectado' | 'aguardando'
+type Status = 'conectado' | 'desconectado' | 'aguardando' | 'erro_numero_duplicado'
 type Aba = 'whatsapp' | 'perfil' | 'meta-ads'
 
 const QR_REFRESH_MS = 3_000
@@ -100,6 +100,11 @@ export default function ConfiguracoesPage() {
         setQrValue(null)
         pararPolling()
         toast.success('WhatsApp conectado!')
+      }
+      if (novoStatus === 'erro_numero_duplicado') {
+        setQrValue(null)
+        pararPolling()
+        toast.error('Este número já está conectado a outra loja no RecompraZap. Desconecte-o lá primeiro antes de conectar aqui.', { duration: 10000 })
       }
       return novoStatus
     } catch {
@@ -580,7 +585,20 @@ export default function ConfiguracoesPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {status === 'conectado' ? (
+            {status === 'erro_numero_duplicado' ? (
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive w-full max-w-sm text-center space-y-1">
+                  <p className="font-semibold">Número já em uso em outra loja</p>
+                  <p>Este número já está conectado a outra loja no RecompraZap. Desconecte-o lá primeiro antes de conectar aqui.</p>
+                </div>
+                <Button variant="outline" onClick={iniciarConexao} disabled={loadingQr} className="w-full max-w-xs">
+                  {loadingQr
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carregando…</>
+                    : <><RefreshCw className="h-4 w-4 mr-2" /> Tentar novamente</>
+                  }
+                </Button>
+              </div>
+            ) : status === 'conectado' ? (
               <div className="flex flex-col items-center gap-4 py-4">
                 <div className="flex items-center gap-2 text-emerald-600">
                   <Wifi className="h-8 w-8" />
@@ -776,6 +794,14 @@ function StatusBadge({ status }: { status: Status }) {
       <Badge className="bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 gap-1.5 flex-shrink-0">
         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
         Aguardando
+      </Badge>
+    )
+  }
+  if (status === 'erro_numero_duplicado') {
+    return (
+      <Badge className="bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800 gap-1.5 flex-shrink-0">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+        Número em uso
       </Badge>
     )
   }
