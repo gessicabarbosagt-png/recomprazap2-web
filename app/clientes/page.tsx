@@ -576,7 +576,9 @@ export default function ClientesPage() {
                       onCheckedChange={() => toggleWaContato(c.telefone)}
                     />
                     <div className="flex-1 min-w-0">
-                      {c.nome && <p className="text-sm font-medium truncate">{c.nome}</p>}
+                      <p className="text-sm font-medium truncate">
+                        {c.nome ?? <span className="text-muted-foreground italic font-normal">Contato sem nome</span>}
+                      </p>
                       <p className="text-xs text-muted-foreground">{c.telefone}</p>
                     </div>
                   </label>
