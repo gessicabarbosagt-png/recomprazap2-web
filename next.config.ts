@@ -1,30 +1,23 @@
 import type { NextConfig } from "next";
 
-// Domínios do Mercado Pago necessários para o SDK de cartão (cardForm / Bricks).
-// O SDK injeta iframes e faz fetch para apis.mercadopago.com durante a tokenização.
-// Fontes Inter: next/font/google baixa em build-time e self-hosta — não precisa
-// de fonts.googleapis.com nem fonts.gstatic.com aqui.
-const MP_SCRIPT    = "https://sdk.mercadopago.com";
-const MP_FRAMES    = "https://*.mercadopago.com https://*.mercadopago.com.br https://*.mlstatic.com https://*.mercadolibre.com";
-const MP_CONNECT   = "https://api.mercadopago.com https://*.mercadopago.com https://*.mercadopago.com.br";
-const MP_IMAGES    = "https://*.mlstatic.com https://*.mercadopago.com https://*.mercadopago.com.br";
-
-// CSP em modo Report-Only: monitora violações sem bloquear nada.
-// Trocar Content-Security-Policy-Report-Only por Content-Security-Policy
-// após confirmar zero violações nos logs de produção.
+// Stripe: integração via redirecionamento puro (window.location.href para Stripe Checkout
+// Session URL retornada pelo backend) — sem loadStripe() nem js.stripe.com no frontend.
+// A CSP não precisa mencionar domínios do Stripe.
 //
-// Diretivas comentadas que precisam de atenção antes de enforcement:
-//   - script-src: Next.js pode precisar de 'unsafe-inline' p/ hydration (testar com nonce em v14+)
-//   - style-src: MP cardForm injeta estilos inline → 'unsafe-inline' necessário
+// Fonte Inter: next/font/google baixa em build-time e self-hosta — sem request
+// para fonts.googleapis.com em runtime, logo não precisa de font-src externo.
+//
+// 'unsafe-inline' em script-src e style-src: necessário para Next.js (inline scripts
+// de hydration/__NEXT_DATA__ e style tags de CSS-in-JS). Eliminar exigiria nonces via
+// middleware — deixar para uma etapa futura.
 const csp = [
   `default-src 'self'`,
-  `script-src 'self' 'unsafe-inline' ${MP_SCRIPT}`,
-  // unsafe-inline necessário porque o MP cardForm injeta <style> diretamente nos iframes
+  `script-src 'self' 'unsafe-inline'`,
   `style-src 'self' 'unsafe-inline'`,
-  `frame-src ${MP_FRAMES}`,
-  `connect-src 'self' https://api.recomprazap.com.br ${MP_CONNECT}`,
-  `img-src 'self' data: ${MP_IMAGES}`,
+  `connect-src 'self' https://api.recomprazap.com.br`,
+  `img-src 'self' data:`,
   `font-src 'self'`,
+  `frame-src 'none'`,
   `form-action 'self'`,
   `base-uri 'self'`,
   `object-src 'none'`,
@@ -37,8 +30,10 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  // Report-Only: não bloqueia, apenas registra violações no console do browser.
-  // Quando confirmar zero violações, mudar para Content-Security-Policy.
+  // Report-Only: não bloqueia, apenas reporta violações no console do browser.
+  // PRÓXIMO PASSO: após confirmar zero violações no fluxo completo (login → dashboard
+  // → /plano → checkout Stripe → retorno), trocar esta linha para:
+  //   { key: "Content-Security-Policy", value: csp },
   { key: "Content-Security-Policy-Report-Only", value: csp },
 ];
 
