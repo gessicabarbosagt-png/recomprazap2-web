@@ -30,11 +30,11 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  // Report-Only: não bloqueia, apenas reporta violações no console do browser.
-  // PRÓXIMO PASSO: após confirmar zero violações no fluxo completo (login → dashboard
-  // → /plano → checkout Stripe → retorno), trocar esta linha para:
-  //   { key: "Content-Security-Policy", value: csp },
-  { key: "Content-Security-Policy-Report-Only", value: csp },
+  // CSP enforcement ativo. Validado em produção (app.recomprazap.com.br).
+  // Única violação detectada: Zod v4 `allowsEval()` — sonda `try { Function("") } catch { return false }`
+  // no chunk de utilitários. O bloco é capturado pelo catch; Zod opera sem JIT. Nada quebra.
+  // 'unsafe-eval' não é necessário: Turbopack só usa eval no dev server, nunca no prod build.
+  { key: "Content-Security-Policy", value: csp },
 ];
 
 const nextConfig: NextConfig = {
