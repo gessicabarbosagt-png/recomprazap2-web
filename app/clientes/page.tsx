@@ -36,6 +36,7 @@ interface ResultadoImport {
   atualizados: number
   totalLinhas: number
   erros: { linha: number; motivo: string }[]
+  acimaDeLimite?: boolean
 }
 
 function isNomeTelefone(nome: string) {
@@ -281,6 +282,9 @@ export default function ClientesPage() {
         .map((c) => ({ telefone: c.telefone, nome: c.nome }))
       const { data } = await api.post('/clientes/importar-whatsapp', { contatos })
       toast.success(`${data.importados} cliente${data.importados !== 1 ? 's' : ''} importado${data.importados !== 1 ? 's' : ''}`)
+      if (data.acimaDeLimite) {
+        toast.warning('Sua base está acima do limite do plano. Faça upgrade em /plano para continuar crescendo.')
+      }
       setWaOpen(false)
       load()
     } catch (err: any) {
@@ -514,6 +518,16 @@ export default function ClientesPage() {
                 <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
                   <CheckCircle2 className="h-4 w-4" />
                   Todas as {resultadoImport.totalLinhas} linhas processadas com sucesso.
+                </div>
+              )}
+
+              {resultadoImport.acimaDeLimite && (
+                <div className="rounded-md border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 p-3 flex items-start gap-2 text-sm text-orange-900 dark:text-orange-200">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    Sua base agora está acima do limite do plano atual. Para continuar adicionando clientes manualmente,{' '}
+                    <a href="/plano" className="font-medium underline underline-offset-2 hover:opacity-80">faça upgrade do seu plano</a>.
+                  </span>
                 </div>
               )}
             </div>
