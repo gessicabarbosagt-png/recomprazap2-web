@@ -339,7 +339,7 @@ function CiclosContent() {
             <h1 className="text-2xl font-bold">Ciclos de Recompra</h1>
             <p className="text-sm text-muted-foreground mt-1">{ciclos.length} ciclos ativos</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
               onClick={() => vencidos.length > 0 && setDispararOpen(true)}
@@ -357,7 +357,7 @@ function CiclosContent() {
           </div>
         </div>
 
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

@@ -428,7 +428,7 @@ export default function DashboardPage() {
         })()}
 
         {/* ── Cards do topo (5 métricas) ────────────────────────────────── */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {cards.map(({ title, value, icon: Icon, desc, href }, i) => {
             const { bg, icon: iconCn } = CARD_COLORS[i]
             const cardEl = (

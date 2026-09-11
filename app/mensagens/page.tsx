@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   Send, MessageSquare, Loader2, RefreshCw, Wifi, WifiOff,
-  Trash2, ShoppingBag, ChevronDown, Check, History, Plus, Tag,
+  Trash2, ShoppingBag, ChevronDown, Check, History, Plus, Tag, ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -177,6 +177,7 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
   const [valorInformar, setValorInformar] = useState('')
   const [salvandoValor, setSalvandoValor] = useState(false)
   const [etiquetasPanelOpen, setEtiquetasPanelOpen] = useState(false)
+  const [mobilePanel, setMobilePanel] = useState<'list' | 'chat' | 'labels'>('list')
 
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -521,10 +522,15 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
 
   return (
     <LayoutShell>
-      <div className="flex -m-8 overflow-hidden" style={{ height: '100vh' }}>
+      <div className="flex -m-4 md:-m-8 overflow-hidden h-[calc(100dvh-3.5rem)] md:h-screen">
 
         {/* ── Lista de conversas ──────────────────────────────────────────────── */}
-        <aside className="w-80 flex-shrink-0 border-r flex flex-col bg-background">
+        <aside className={cn(
+          "border-r flex-col bg-background",
+          mobilePanel === 'list'
+            ? "flex w-full md:w-80 md:flex-shrink-0"
+            : "hidden md:flex md:w-80 md:flex-shrink-0"
+        )}>
 
           {/* Header da sidebar */}
           <div className="px-4 py-3 border-b flex items-center justify-between gap-2">
@@ -570,6 +576,7 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
                   onClick={() => {
                     setConversaAtiva(c.telefone)
                     marcarLida(c.clienteId)
+                    setMobilePanel('chat')
                   }}
                   className={cn(
                     'w-full text-left px-4 py-3 flex gap-3 items-start border-b transition-colors hover:bg-accent',
@@ -607,12 +614,20 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
         </aside>
 
         {/* ── Área do chat ────────────────────────────────────────────────────── */}
-        <section className="flex-1 flex min-w-0 bg-background">
-          <div className="flex-1 flex flex-col min-w-0">
+        <section className={cn("flex-1 flex min-w-0 bg-background", mobilePanel === 'list' && "hidden md:flex")}>
+          <div className={cn("flex-1 flex flex-col min-w-0", mobilePanel === 'labels' && "hidden md:flex")}>
           {conversaAtiva && conversaAtivaInfo ? (
             <>
               {/* Header da conversa */}
               <div className="px-4 py-3 border-b flex items-center gap-3 flex-shrink-0">
+                <Button
+                  className="md:hidden -ml-1 flex-shrink-0"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setMobilePanel('list')}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
                 <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium flex-shrink-0">
                   {nomeDisplay(conversaAtivaInfo.clienteNome, conversaAtivaInfo.clienteWhatsappNome).charAt(0).toUpperCase()}
                 </div>
@@ -768,7 +783,14 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
                 <Button
                   size="icon"
                   variant={etiquetasPanelOpen ? 'secondary' : 'ghost'}
-                  onClick={() => setEtiquetasPanelOpen((o) => !o)}
+                  onClick={() => {
+                    if (window.innerWidth < 768) {
+                      setEtiquetasPanelOpen(true)
+                      setMobilePanel('labels')
+                    } else {
+                      setEtiquetasPanelOpen((o) => !o)
+                    }
+                  }}
                   title="Etiquetas"
                   className="flex-shrink-0 relative"
                 >
@@ -914,10 +936,23 @@ function MensagensContent({ telefoneInicial }: { telefoneInicial?: string | null
 
           {/* ── Painel lateral de Etiquetas ──────────────────────────────────── */}
           {etiquetasPanelOpen && conversaAtiva && conversaAtivaInfo && (
-            <aside className="w-64 flex-shrink-0 border-l flex flex-col bg-background">
-              <div className="px-4 py-3 border-b flex-shrink-0">
-                <h3 className="text-sm font-semibold">Etiquetas</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Gerencie o status desta conversa</p>
+            <aside className={cn(
+              "flex-shrink-0 border-l flex flex-col bg-background",
+              mobilePanel === 'labels' ? "w-full md:w-64" : "hidden md:flex md:w-64"
+            )}>
+              <div className="px-4 py-3 border-b flex-shrink-0 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">Etiquetas</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Gerencie o status desta conversa</p>
+                </div>
+                <Button
+                  className="md:hidden flex-shrink-0"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setMobilePanel('chat')}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
               </div>
               <div className="flex-1 overflow-y-auto px-3 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">

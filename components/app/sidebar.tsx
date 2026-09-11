@@ -51,7 +51,7 @@ const navBottom = [
   { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]
 
-function ChecklistWidget() {
+function ChecklistWidget({ popoverSide = 'right' }: { popoverSide?: 'right' | 'bottom' }) {
   const { checklist } = useChecklist()
 
   if (!checklist || checklist.completo) return null
@@ -81,7 +81,7 @@ function ChecklistWidget() {
           />
         </div>
       </PopoverTrigger>
-      <PopoverContent side="right" align="end" className="w-72 p-0">
+      <PopoverContent side={popoverSide} align="end" className="w-72 p-0">
         <div className="px-4 py-3 border-b">
           <p className="text-sm font-semibold">Comece por aqui</p>
           <p className="text-xs text-muted-foreground">{concluidos} de {total} completos</p>
@@ -116,12 +116,20 @@ function ChecklistWidget() {
   )
 }
 
-export function Sidebar() {
+export function Sidebar({
+  className,
+  onNavigate,
+  mobileView = false,
+}: {
+  className?: string
+  onNavigate?: () => void
+  mobileView?: boolean
+}) {
   const pathname = usePathname()
   const { usuario, logout } = useAuth()
 
   return (
-    <aside className="sticky top-0 h-screen flex flex-col w-60 border-r bg-card px-3 py-4 overflow-hidden">
+    <aside className={cn("h-screen flex-col w-60 border-r bg-card px-3 py-4 overflow-hidden", className)}>
       <div className="flex-shrink-0 px-2 mb-6">
         <span className="text-xl font-bold">♻️ RecompraZap</span>
         {usuario?.loja && (
@@ -134,7 +142,7 @@ export function Sidebar() {
 
       {/* Widget checklist — visível enquanto não completo */}
       <div className="flex-shrink-0 mb-2">
-        <ChecklistWidget />
+        <ChecklistWidget popoverSide={mobileView ? 'bottom' : 'right'} />
       </div>
 
       {usuario?.role === 'admin' ? (
@@ -144,7 +152,7 @@ export function Sidebar() {
               { href: '/admin', label: 'Painel Admin', icon: ShieldCheck },
               { href: '/admin/lojas', label: 'Lojas', icon: ShoppingBag },
             ].map(({ href, label, icon: Icon }) => (
-              <Link key={href} href={href}>
+              <Link key={href} href={href} onClick={onNavigate}>
                 <span
                   className={cn(
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
@@ -166,7 +174,7 @@ export function Sidebar() {
               <p className="px-3 text-xs text-muted-foreground font-medium mb-1 truncate">{usuario.loja.nome}</p>
               <nav className="space-y-1">
                 {nav.map(({ href, label, icon: Icon }) => (
-                  <Link key={href} href={href}>
+                  <Link key={href} href={href} onClick={onNavigate}>
                     <span
                       className={cn(
                         'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
@@ -187,7 +195,7 @@ export function Sidebar() {
       ) : (
         <nav className="flex-1 space-y-1 overflow-y-auto min-h-0">
           {nav.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href}>
+            <Link key={href} href={href} onClick={onNavigate}>
               <span
                 className={cn(
                   'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
@@ -206,7 +214,7 @@ export function Sidebar() {
 
       <nav className="flex-shrink-0 space-y-1 mb-1 mt-2">
         {navBottom.map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href}>
+          <Link key={href} href={href} onClick={onNavigate}>
             <span
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
