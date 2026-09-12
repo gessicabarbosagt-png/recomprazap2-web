@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { MessageCircle, ExternalLink, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
@@ -16,7 +16,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
-  const [suporteAberto, setSuporteAberto] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -73,52 +72,28 @@ export default function LoginPage() {
           </form>
 
           <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setSuporteAberto(true)}
+            <Link
+              href="/esqueci-senha"
               className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
             >
               Esqueci minha senha
-            </button>
+            </Link>
           </div>
 
           <p className="text-xs text-muted-foreground/60 text-center leading-relaxed">
-            Foi desconectado sem motivo aparente? Isso pode acontecer por segurança.{' '}
-            Redefina sua senha acima ou{' '}
+            Problemas para acessar?{' '}
             <a
               href="https://wa.me/5511983202160"
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors"
             >
-              fale com o suporte
+              Fale com o suporte
             </a>
             .
           </p>
         </CardContent>
       </Card>
-
-      <Dialog open={suporteAberto} onOpenChange={setSuporteAberto}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Como podemos ajudar?</DialogTitle>
-          </DialogHeader>
-          <div className="flex justify-center mt-4">
-            <a href="https://wa.me/5511983202160" target="_blank" rel="noopener noreferrer">
-              <div className="flex flex-col items-center gap-3 p-6 rounded-lg border hover:bg-accent transition-colors cursor-pointer text-center w-48">
-                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
-                  <MessageCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">Falar no WhatsApp</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Resposta rápida</p>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-            </a>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

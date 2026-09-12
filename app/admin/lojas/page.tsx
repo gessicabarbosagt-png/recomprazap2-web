@@ -32,7 +32,7 @@ interface Loja {
 interface Credenciais {
   loja: { nome: string; email: string }
   usuario: { nome: string; email: string }
-  senhaTemporaria: string
+  emailEnviado: boolean
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -149,12 +149,14 @@ export default function AdminLojasPage() {
           {credenciais && (
             <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-green-800 dark:text-green-400">Loja criada! Copie as credenciais antes de sair.</CardTitle>
+                <CardTitle className="text-sm text-green-800 dark:text-green-400">Loja criada com sucesso!</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm font-mono text-green-900 dark:text-green-300">
+              <CardContent className="space-y-1 text-sm text-green-900 dark:text-green-300">
                 <p>Loja: <strong>{credenciais.loja.nome}</strong></p>
                 <p>Login: <strong>{credenciais.usuario.email}</strong></p>
-                <p>Senha temporária: <strong>{credenciais.senhaTemporaria}</strong></p>
+                <p className="text-green-700 dark:text-green-400">
+                  Um e-mail foi enviado para o lojista com o link para definir a própria senha.
+                </p>
                 <Button variant="ghost" size="sm" className="mt-2 text-green-700 dark:text-green-400" onClick={() => setCredenciais(null)}>
                   Fechar
                 </Button>
